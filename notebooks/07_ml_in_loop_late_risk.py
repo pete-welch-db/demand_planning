@@ -14,9 +14,22 @@
 # MAGIC - Scores recent orders and writes a **Gold** Delta table: `order_late_risk_scored`
 
 # COMMAND ----------
+
 # MAGIC %run ./00_setup
 
 # COMMAND ----------
+
+# MAGIC %pip install -q \
+# MAGIC   "numpy==1.26.4" \
+# MAGIC   "pandas==2.2.3" \
+# MAGIC   "mlflow==2.14.2" \
+# MAGIC   "scikit-learn==1.5.2" \
+# MAGIC   "matplotlib==3.9.2"
+# MAGIC
+# MAGIC dbutils.library.restartPython()
+
+# COMMAND ----------
+
 import mlflow
 import mlflow.spark
 
@@ -29,6 +42,7 @@ from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
 
 # COMMAND ----------
+
 # Widgets
 dbutils.widgets.text("train_lookback_days", "540")
 dbutils.widgets.text("test_days", "90")
@@ -39,12 +53,14 @@ TEST_DAYS = int(dbutils.widgets.get("test_days"))
 MODEL_NAME = dbutils.widgets.get("model_name")
 
 # COMMAND ----------
+
 # MAGIC %md
 # MAGIC ### 7.1 Load Silver orders (from SDP/DLT pipeline)
 # MAGIC
 # MAGIC Assumes you ran `pipelines/dlt_supply_chain_medallion.py` targeting the same UC schema.
 
 # COMMAND ----------
+
 silver_orders_table = f"{cfg.fq_schema}.silver_erp_orders"
 orders = spark.table(silver_orders_table)
 
@@ -104,10 +120,12 @@ test = feat.where(F.col("order_date") >= F.lit(cutoff_test))
 display(train.select("order_date", "is_late").groupBy("is_late").count())
 
 # COMMAND ----------
+
 # MAGIC %md
 # MAGIC ### 7.2 Train a simple baseline model (Logistic Regression)
 
 # COMMAND ----------
+
 cat_cols = ["customer_region", "channel", "plant_id", "dc_id", "sku_family"]
 num_cols = ["units_ordered", "unit_price", "days_to_request", "dow", "woy", "month", "construction_index", "precipitation_mm", "avg_temp_c"]
 
@@ -153,10 +171,12 @@ with mlflow.start_run(run_name="late_delivery_risk_logreg") as run:
     print("Registered model:", mv.name, "version:", mv.version)
 
 # COMMAND ----------
+
 # MAGIC %md
 # MAGIC ### 7.3 Score into a Gold table used by the app
 
 # COMMAND ----------
+
 # Score the most recent ~13 weeks of orders (or all if you prefer)
 recent_cutoff = spark.sql("SELECT date_sub(current_date(), 91) AS d").collect()[0]["d"]
 to_score = feat.where(F.col("order_date") >= F.lit(recent_cutoff))
