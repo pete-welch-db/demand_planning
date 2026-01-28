@@ -17,6 +17,24 @@
 # MAGIC - Log run + artifacts to MLflow
 
 # COMMAND ----------
+# MAGIC %md
+# MAGIC ### Dependency bootstrap (install before imports)
+# MAGIC
+# MAGIC This notebook relies on a couple Python libs that may not be present on every cluster policy/runtime.
+# MAGIC We install them *first* using notebook-scoped `%pip`, then restart Python so imports are consistent.
+
+# COMMAND ----------
+# MAGIC %pip install -q \
+# MAGIC   "numpy==1.26.4" \
+# MAGIC   "pandas==2.2.3" \
+# MAGIC   "mlflow==2.14.2" \
+# MAGIC   "scikit-learn==1.5.2" \
+# MAGIC   "matplotlib==3.9.2"
+
+# COMMAND ----------
+dbutils.library.restartPython()
+
+# COMMAND ----------
 # MAGIC %run ./00_setup
 
 # COMMAND ----------
