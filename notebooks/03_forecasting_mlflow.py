@@ -316,8 +316,21 @@ preds.write.format("delta").mode("overwrite").saveAsTable(cfg.table("demand_fore
 
 # For KPI join (MAPE), keep a single “selected model” *table*.
 # This avoids view/table conflicts (e.g., if a placeholder table was created earlier).
-spark.sql(f"DROP VIEW IF EXISTS {cfg.table('demand_forecast')}")
-spark.sql(f"DROP VIEW IF EXISTS {cfg.table('demand_forecast_future')}")
+def _safe_drop_any(fq_name: str) -> None:
+    # Databricks will error if you DROP VIEW on a table (or DROP TABLE on a view).
+    # For demo robustness, try both and ignore failures.
+    try:
+        spark.sql(f"DROP VIEW IF EXISTS {fq_name}")
+    except Exception:
+        pass
+    try:
+        spark.sql(f"DROP TABLE IF EXISTS {fq_name}")
+    except Exception:
+        pass
+
+
+_safe_drop_any(cfg.table("demand_forecast"))
+_safe_drop_any(cfg.table("demand_forecast_future"))
 
 ridge_backtest = (
     spark.table(cfg.table("demand_forecast_all"))
