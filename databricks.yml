@@ -1,0 +1,79 @@
+# Databricks Asset Bundle Configuration
+# =====================================
+# Demand Planning + Supply Chain Visibility Demo
+#
+# Validate: databricks bundle validate
+# Deploy:   databricks bundle deploy --target azure
+# Run:      databricks bundle run --target azure <job_name>
+
+bundle:
+  name: demand_planning_demo
+
+# Variables that can be overridden per target
+variables:
+  catalog:
+    description: Unity Catalog name
+    default: welch
+  schema:
+    description: Schema name for all tables
+    default: demand_planning_demo
+  warehouse_id:
+    description: SQL Warehouse ID for DBSQL/Genie usage (optional)
+    default: ""
+  # Service principal for production deployments (optional)
+  service_principal_name:
+    description: Service principal for running jobs and apps
+    default: ""
+  demo_name:
+    description: Human-friendly name for deployed resources
+    default: demand-planning-demo
+  late_risk_model_name:
+    description: UC model name used for late-risk scoring/serving
+    default: "${var.catalog}.${var.schema}.order_late_risk_model"
+
+# Include resource definitions from separate files
+include:
+  - resources/**/*.yml
+
+# Workspace settings
+workspace:
+  # Default bundle workspace path. Targets can override this (e.g., for Apps).
+  # Use a Shared path to avoid requiring user-name resolution during bundle validation.
+  root_path: /Workspace/Shared/.bundle/${bundle.name}
+
+# Target environments
+# Note: configure Databricks CLI auth, e.g. `databricks auth login --host <host> --profile <profile>`
+targets:
+  # Development environment (generic)
+  dev:
+    mode: development
+    default: true
+    # Uses your active Databricks CLI auth (default profile) for host/workspace resolution.
+
+  # Azure workspace environment (your target)
+  azure:
+    mode: development
+    variables:
+      catalog: welch
+      schema: demand_planning_demo
+    workspace:
+      host: https://adb-984752964297111.11.azuredatabricks.net
+      # Optional: keep bundle assets co-located with Apps projects in your user space.
+      root_path: /Workspace/Shared/apps/${var.demo_name}
+
+  # Production target (optional; enable when you want run-as service principal + permissions)
+  # prod:
+  #   mode: production
+  #   variables:
+  #     catalog: welch
+  #     schema: demand_planning_demo
+  #   run_as:
+  #     service_principal_name: ${var.service_principal_name}
+  #   permissions:
+  #     - level: CAN_VIEW
+  #       group_name: users
+  #     - level: CAN_RUN
+  #       group_name: data-engineers
+  #     - level: CAN_MANAGE
+  #       service_principal_name: ${var.service_principal_name}
+

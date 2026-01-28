@@ -1,0 +1,14 @@
+name: demand-planning-control-tower
+description: Streamlit control tower demo for demand planning + supply chain visibility (Databricks Lakehouse)
+
+# NOTE: Databricks Apps config formats can vary by workspace release.
+# If your workspace expects a different schema, keep the same intent:
+# run Streamlit with `app/app.py` and use `app/requirements.txt`.
+
+command:
+  - bash
+  - -lc
+  - |
+    python -m pip install -r app/requirements.txt
+    python -m streamlit run app/app.py --server.port 8080 --server.address 0.0.0.0
+

@@ -1,0 +1,59 @@
+## Demo runbook: Business-facing app + real backend
+
+### Goal
+Show a **polished Streamlit control tower** for business users, backed by a **real Lakehouse implementation** for technical stakeholders:
+- Lakeflow SDP/DLT Bronze→Silver→Gold
+- MLflow model training + registry + scoring into Gold tables
+- Genie over the same Gold tables
+- Asset Bundle packaging for repeatable deployment
+
+---
+
+## Track A: Business walkthrough (Streamlit, 10–15 minutes)
+
+**Audience**: demand planners, logistics managers, finance/sustainability.
+
+- **Landing**
+  - Problem/Data/KPIs/Impact framing
+  - “How it works” (Unify → ML/Genie → Action)
+- **Dashboard**
+  - OTIF trend
+  - Demand vs forecast
+  - Late-delivery risk hotspots (ML-in-loop)
+  - Close with: “this is what we act on this week”
+- **Scenarios**
+  - Accuracy → buffers/premium freight narrative
+  - Risk mitigation slider → proactive actions narrative
+- **Assistant**
+  - KPI-driven starter questions
+  - Query phrasing tips
+  - (Optional) switch to real Genie if configured
+
+---
+
+## Track B: Technical deep dive (DLT/MLflow/Genie/DAB, 10–15 minutes)
+
+**Audience**: data/ML engineers, platform admins, architects.
+
+### 1) Medallion architecture (Lakeflow SDP/DLT 7.1)
+- Pipeline: `pipelines/dlt_supply_chain_medallion.py`
+- **Bronze**: raw synthetic sources (`bronze_*`)
+- **Silver**: standardized operational tables (`silver_*`)
+- **Gold**: app-facing analytics (`control_tower_weekly`, `weekly_demand_actual`, KPI tables)
+
+### 2) Real ML in the loop (late-delivery risk)
+- Notebook: `notebooks/07_ml_in_loop_late_risk.py`
+- Registers UC model: `<catalog>.<schema>.order_late_risk_model`
+- Scores into Gold: `order_late_risk_scored`
+- Optional: DLT scoring with `demo.late_risk_model_name`
+
+### 3) Genie on the same data
+- Genie space over Gold tables
+- App env var: `GENIE_SPACE_ID`
+
+### 4) Deployment = Asset Bundle
+- Entry: `databricks.yml`
+- Pipeline: `resources/pipelines/medallion.yml`
+- Job: `resources/jobs/train_and_register_late_risk.yml`
+- SQL assets: `sql/kpi_starter_queries.sql`
+

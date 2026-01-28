@@ -1,0 +1,24 @@
+resources:
+  jobs:
+    demand_planning_pipeline_job:
+      name: "${var.demo_name}-pipeline"
+      tasks:
+        - task_key: run_dlt_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.supply_chain_medallion.id}
+        - task_key: train_register_late_risk
+          depends_on:
+            - task_key: run_dlt_pipeline
+          notebook_task:
+            notebook_path: ${workspace.file_path}/notebooks/07_ml_in_loop_late_risk
+            base_parameters:
+              catalog: "${var.catalog}"
+              schema: "${var.schema}"
+              model_name: "${var.late_risk_model_name}"
+              train_lookback_days: "540"
+              test_days: "90"
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: "Standard_DS3_v2"
+            num_workers: 2
+

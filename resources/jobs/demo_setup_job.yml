@@ -1,0 +1,16 @@
+resources:
+  jobs:
+    demand_planning_setup_job:
+      name: "${var.demo_name}-setup"
+      tasks:
+        - task_key: uc_setup
+          notebook_task:
+            notebook_path: ${workspace.file_path}/notebooks/08_uc_setup
+            base_parameters:
+              catalog: "${var.catalog}"
+              schema: "${var.schema}"
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: "Standard_DS3_v2"
+            num_workers: 1
+

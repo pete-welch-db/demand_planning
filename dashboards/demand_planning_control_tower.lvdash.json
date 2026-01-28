@@ -1,0 +1,734 @@
+{
+  "datasets": [
+    {
+      "name": "kpi_snapshot",
+      "displayName": "KPI Snapshot (13w)",
+      "queryLines": [
+        "WITH ct AS (",
+        "  SELECT *",
+        "  FROM welch.demand_planning_demo.control_tower_weekly",
+        "  WHERE week >= date_sub(current_date(), 91)",
+        "),",
+        "otif AS (",
+        "  SELECT avg(otif_rate) AS otif_rate",
+        "  FROM ct",
+        "),",
+        "freight AS (",
+        "  SELECT avg(freight_cost_per_ton) AS freight_cost_per_ton,",
+        "         avg(premium_freight_pct) AS premium_freight_pct,",
+        "         avg(co2_kg_per_ton) AS co2_kg_per_ton",
+        "  FROM ct",
+        "),",
+        "energy AS (",
+        "  SELECT avg(energy_kwh_per_unit) AS energy_kwh_per_unit",
+        "  FROM ct",
+        "),",
+        "risk AS (",
+        "  SELECT avg(late_risk_prob) AS late_risk_prob",
+        "  FROM welch.demand_planning_demo.order_late_risk_scored",
+        "  WHERE order_date >= date_sub(current_date(), 91)",
+        ")",
+        "SELECT",
+        "  otif.otif_rate,",
+        "  freight.freight_cost_per_ton,",
+        "  freight.premium_freight_pct,",
+        "  freight.co2_kg_per_ton,",
+        "  energy.energy_kwh_per_unit,",
+        "  risk.late_risk_prob",
+        "FROM otif CROSS JOIN freight CROSS JOIN energy CROSS JOIN risk"
+      ]
+    },
+    {
+      "name": "otif_trend",
+      "displayName": "OTIF Trend (Weekly)",
+      "queryLines": [
+        "SELECT",
+        "  week,",
+        "  region,",
+        "  avg(otif_rate) AS otif_rate",
+        "FROM welch.demand_planning_demo.control_tower_weekly",
+        "GROUP BY 1,2",
+        "ORDER BY week, region"
+      ]
+    },
+    {
+      "name": "freight_lanes_13w",
+      "displayName": "Freight Lanes (13w)",
+      "queryLines": [
+        "SELECT",
+        "  plant_id,",
+        "  dc_id,",
+        "  avg(freight_cost_per_ton) AS freight_cost_per_ton,",
+        "  avg(premium_freight_pct) AS premium_freight_pct,",
+        "  avg(co2_kg_per_ton) AS co2_kg_per_ton",
+        "FROM welch.demand_planning_demo.control_tower_weekly",
+        "WHERE week >= date_sub(current_date(), 91)",
+        "GROUP BY 1,2",
+        "ORDER BY freight_cost_per_ton DESC",
+        "LIMIT 25"
+      ]
+    },
+    {
+      "name": "energy_trend",
+      "displayName": "Energy Intensity (Weekly)",
+      "queryLines": [
+        "SELECT",
+        "  week,",
+        "  plant_id,",
+        "  sku_family,",
+        "  avg(energy_kwh_per_unit) AS energy_kwh_per_unit",
+        "FROM welch.demand_planning_demo.kpi_energy_intensity_weekly",
+        "GROUP BY 1,2,3",
+        "ORDER BY week, plant_id, sku_family"
+      ]
+    },
+    {
+      "name": "late_risk_hotspots",
+      "displayName": "Late-Risk Hotspots (4w)",
+      "queryLines": [
+        "SELECT",
+        "  customer_region,",
+        "  sku_family,",
+        "  avg(late_risk_prob) AS avg_late_risk_prob",
+        "FROM welch.demand_planning_demo.order_late_risk_scored",
+        "WHERE order_date >= date_sub(current_date(), 28)",
+        "GROUP BY 1,2",
+        "ORDER BY avg_late_risk_prob DESC"
+      ]
+    },
+    {
+      "name": "late_risk_orders",
+      "displayName": "Highest Late-Risk Orders (30d)",
+      "queryLines": [
+        "SELECT",
+        "  order_date,",
+        "  customer_region,",
+        "  channel,",
+        "  plant_id,",
+        "  dc_id,",
+        "  sku_family,",
+        "  units_ordered,",
+        "  days_to_request,",
+        "  late_risk_prob,",
+        "  late_risk_flag,",
+        "  actual_late",
+        "FROM welch.demand_planning_demo.order_late_risk_scored",
+        "WHERE order_date >= date_sub(current_date(), 30)",
+        "ORDER BY late_risk_prob DESC",
+        "LIMIT 50"
+      ]
+    },
+    {
+      "name": "demand_vs_forecast",
+      "displayName": "Demand vs Forecast (Weekly)",
+      "queryLines": [
+        "WITH a AS (",
+        "  SELECT week, sku_family, region, actual_units",
+        "  FROM welch.demand_planning_demo.weekly_demand_actual",
+        "),",
+        "f AS (",
+        "  SELECT week, sku_family, region, forecast_units",
+        "  FROM welch.demand_planning_demo.demand_forecast",
+        ")",
+        "SELECT",
+        "  a.week,",
+        "  a.sku_family,",
+        "  a.region,",
+        "  a.actual_units,",
+        "  f.forecast_units",
+        "FROM a",
+        "LEFT JOIN f USING (week, sku_family, region)",
+        "ORDER BY a.week"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "Executive_Overview",
+      "displayName": "🎯 Executive Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "header_text",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# 🚚 Demand Planning Control Tower\\n",
+                "\\n",
+                "**Unified visibility across service, cost, and sustainability** | *Click charts to cross-filter*"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 8,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_otif",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_snapshot",
+                  "fields": [
+                    {
+                      "name": "otif_rate",
+                      "expression": "`otif_rate`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "otif_rate",
+                  "displayName": "OTIF"
+                }
+              },
+              "frame": {
+                "title": "✅ OTIF (13w avg)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_freight_per_ton",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_snapshot",
+                  "fields": [
+                    {
+                      "name": "freight_cost_per_ton",
+                      "expression": "`freight_cost_per_ton`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "freight_cost_per_ton",
+                  "displayName": "$/ton"
+                }
+              },
+              "frame": {
+                "title": "💸 Freight $/ton (13w avg)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 1,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_premium_freight",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_snapshot",
+                  "fields": [
+                    {
+                      "name": "premium_freight_pct",
+                      "expression": "`premium_freight_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "premium_freight_pct",
+                  "displayName": "Premium %"
+                }
+              },
+              "frame": {
+                "title": "🚨 Premium freight (13w avg)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 1,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_co2_per_ton",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_snapshot",
+                  "fields": [
+                    {
+                      "name": "co2_kg_per_ton",
+                      "expression": "`co2_kg_per_ton`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "co2_kg_per_ton",
+                  "displayName": "kg/ton"
+                }
+              },
+              "frame": {
+                "title": "🌿 CO₂ kg/ton (13w avg)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 1,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "otif_trend_line",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "otif_trend",
+                  "fields": [
+                    {
+                      "name": "week",
+                      "expression": "`week`"
+                    },
+                    {
+                      "name": "otif_rate",
+                      "expression": "`otif_rate`"
+                    },
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "week",
+                  "displayName": "Week",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "otif_rate",
+                  "displayName": "OTIF",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "region",
+                  "displayName": "Region"
+                }
+              },
+              "frame": {
+                "title": "📈 OTIF trend by region (weekly)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 5,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "freight_lanes_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "freight_lanes_13w",
+                  "fields": [
+                    {
+                      "name": "freight_cost_per_ton",
+                      "expression": "`freight_cost_per_ton`"
+                    },
+                    {
+                      "name": "lane",
+                      "expression": "concat(`plant_id`, '→', `dc_id`)"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "freight_cost_per_ton",
+                  "displayName": "Freight $/ton",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "lane",
+                  "displayName": "Lane",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "title": "🚚 Highest-cost lanes (13w avg)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 3,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "late_risk_heatmap",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "late_risk_hotspots",
+                  "fields": [
+                    {
+                      "name": "customer_region",
+                      "expression": "`customer_region`"
+                    },
+                    {
+                      "name": "sku_family",
+                      "expression": "`sku_family`"
+                    },
+                    {
+                      "name": "avg_late_risk_prob",
+                      "expression": "`avg_late_risk_prob`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "heatmap",
+              "encodings": {
+                "x": {
+                  "fieldName": "customer_region",
+                  "displayName": "Region",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sku_family",
+                  "displayName": "Family",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "color": {
+                  "fieldName": "avg_late_risk_prob",
+                  "displayName": "Avg late-risk",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "title": "🤖 Late-delivery risk hotspots (last 4 weeks)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 5,
+            "height": 3
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "Operations_and_Risk",
+      "displayName": "🚚 Ops & Risk",
+      "layout": [
+        {
+          "widget": {
+            "name": "ops_header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# 🚚 Operations & Risk\\n",
+                "\\n",
+                "**Where should we protect service this week?** | *Use late-risk + lane cost to prioritize actions*"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 8,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "late_risk_orders_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "late_risk_orders",
+                  "fields": [
+                    {
+                      "name": "order_date",
+                      "expression": "`order_date`"
+                    },
+                    {
+                      "name": "customer_region",
+                      "expression": "`customer_region`"
+                    },
+                    {
+                      "name": "channel",
+                      "expression": "`channel`"
+                    },
+                    {
+                      "name": "plant_id",
+                      "expression": "`plant_id`"
+                    },
+                    {
+                      "name": "dc_id",
+                      "expression": "`dc_id`"
+                    },
+                    {
+                      "name": "sku_family",
+                      "expression": "`sku_family`"
+                    },
+                    {
+                      "name": "units_ordered",
+                      "expression": "`units_ordered`"
+                    },
+                    {
+                      "name": "days_to_request",
+                      "expression": "`days_to_request`"
+                    },
+                    {
+                      "name": "late_risk_prob",
+                      "expression": "`late_risk_prob`"
+                    },
+                    {
+                      "name": "actual_late",
+                      "expression": "`actual_late`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "order_date",
+                    "dateTimeFormat": "YYYY-MM-DD",
+                    "type": "date",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "order_date",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "allowHTML": false
+                  },
+                  {
+                    "fieldName": "customer_region",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "region",
+                    "alignContent": "left",
+                    "allowSearch": false,
+                    "allowHTML": false
+                  },
+                  {
+                    "fieldName": "channel",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "channel",
+                    "alignContent": "left",
+                    "allowSearch": false,
+                    "allowHTML": false
+                  },
+                  {
+                    "fieldName": "plant_id",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "plant",
+                    "alignContent": "left",
+                    "allowSearch": false,
+                    "allowHTML": false
+                  },
+                  {
+                    "fieldName": "dc_id",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "dc",
+                    "alignContent": "left",
+                    "allowSearch": false,
+                    "allowHTML": false
+                  },
+                  {
+                    "fieldName": "sku_family",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "family",
+                    "alignContent": "left",
+                    "allowSearch": false,
+                    "allowHTML": false
+                  },
+                  {
+                    "fieldName": "units_ordered",
+                    "numberFormat": "0",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "units",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "allowHTML": false
+                  },
+                  {
+                    "fieldName": "days_to_request",
+                    "numberFormat": "0",
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "lead_days",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "allowHTML": false
+                  },
+                  {
+                    "fieldName": "late_risk_prob",
+                    "numberFormat": "0.00",
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "risk_prob",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "allowHTML": false
+                  },
+                  {
+                    "fieldName": "actual_late",
+                    "numberFormat": "0",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100009,
+                    "title": "actual_late",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "allowHTML": false
+                  }
+                ]
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "frame": {
+                "title": "🔥 Highest late-risk orders (last 30d)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 8,
+            "height": 4
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ]
+}
+

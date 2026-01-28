@@ -1,0 +1,23 @@
+resources:
+  pipelines:
+    supply_chain_medallion:
+      name: "${var.demo_name}-medallion"
+      target: "${var.schema}"
+      catalog: "${var.catalog}"
+      development: true
+      channel: CURRENT
+      photon: true
+      libraries:
+        - notebook:
+            path: ${workspace.file_path}/pipelines/dlt_supply_chain_medallion
+      configuration:
+        demo.years: "3"
+        demo.num_plants: "10"
+        demo.num_dcs: "10"
+        demo.num_skus: "400"
+        demo.num_customers: "1500"
+        demo.orders_per_day: "300"
+        demo.include_external_signals: "true"
+        # Enable true ML scoring in DLT by pointing at a registered model (optional):
+        demo.late_risk_model_name: "${var.late_risk_model_name}"
+

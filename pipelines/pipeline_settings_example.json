@@ -1,0 +1,23 @@
+{
+  "name": "demand_planning_medallion_demo",
+  "development": true,
+  "edition": "ADVANCED",
+  "channel": "CURRENT",
+  "libraries": [
+    {
+      "notebook": {
+        "path": "/Repos/<your_user>/<your_repo>/pipelines/dlt_supply_chain_medallion"
+      }
+    }
+  ],
+  "configuration": {
+    "demo.years": "3",
+    "demo.num_plants": "10",
+    "demo.num_dcs": "10",
+    "demo.num_skus": "400",
+    "demo.num_customers": "1500",
+    "demo.orders_per_day": "300",
+    "demo.include_external_signals": "true"
+  }
+}
+

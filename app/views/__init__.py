@@ -1,0 +1,2 @@
+"""Streamlit views (tabs/pages)."""
+
