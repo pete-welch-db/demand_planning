@@ -314,34 +314,26 @@ display(preds.orderBy("sku_family", "region", "week").limit(30))
 # Persist both backtest + future so dashboards can compare
 preds.write.format("delta").mode("overwrite").saveAsTable(cfg.table("demand_forecast_all"))
 
-# For KPI join (MAPE), keep a single “selected model” view/table.
-# In real implementations you’d choose per-series champions; for demo we pick ridge model.
-spark.sql(f"""
-CREATE OR REPLACE VIEW {cfg.table("demand_forecast")} AS
-SELECT
-  week,
-  sku_family,
-  region,
-  forecast_units,
-  lower_ci,
-  upper_ci
-FROM {cfg.table("demand_forecast_all")}
-WHERE model_name = 'ridge_time_lags' AND is_backtest = 1.0
-""")
+# For KPI join (MAPE), keep a single “selected model” *table*.
+# This avoids view/table conflicts (e.g., if a placeholder table was created earlier).
+spark.sql(f"DROP VIEW IF EXISTS {cfg.table('demand_forecast')}")
+spark.sql(f"DROP VIEW IF EXISTS {cfg.table('demand_forecast_future')}")
 
-spark.sql(f"""
-CREATE OR REPLACE VIEW {cfg.table("demand_forecast_future")} AS
-SELECT
-  week,
-  sku_family,
-  region,
-  forecast_units,
-  lower_ci,
-  upper_ci,
-  model_name
-FROM {cfg.table("demand_forecast_all")}
-WHERE is_backtest = 0.0
-""")
+ridge_backtest = (
+    spark.table(cfg.table("demand_forecast_all"))
+    .where("model_name = 'ridge_time_lags' AND is_backtest = 1.0")
+    .select("week", "sku_family", "region", "forecast_units", "lower_ci", "upper_ci")
+)
+
+(ridge_backtest.write.format("delta").mode("overwrite").saveAsTable(cfg.table("demand_forecast")))
+
+future = (
+    spark.table(cfg.table("demand_forecast_all"))
+    .where("is_backtest = 0.0")
+    .select("week", "sku_family", "region", "forecast_units", "lower_ci", "upper_ci", "model_name")
+)
+
+(future.write.format("delta").mode("overwrite").saveAsTable(cfg.table("demand_forecast_future")))
 
 # COMMAND ----------
 # MAGIC %md
