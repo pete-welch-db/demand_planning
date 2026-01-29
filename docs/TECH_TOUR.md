@@ -32,7 +32,7 @@
   - `order_late_risk_scored`
 
 ### 2) ML in the loop (late-risk)
-- Training notebook: `notebooks/07_ml_in_loop_late_risk.py`
+- Training notebook: `notebooks/05_ml_late_risk.py`
 - Bundle job: `resources/jobs/train_and_register_late_risk.yml`
 - Model (UC): `<catalog>.<schema>.order_late_risk_model`
 - DLT scoring config: `demo.late_risk_model_name`

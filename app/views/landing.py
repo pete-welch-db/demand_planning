@@ -131,7 +131,11 @@ def render(cfg: AppConfig, use_mock: bool) -> None:
         st.code(f"{cfg.databricks_catalog}.{cfg.databricks_schema}", language="text")
     with s3:
         st.markdown("**Next steps**")
-        st.write("Run notebooks `notebooks/00` → `03` to create Delta tables/views, then toggle off Mock mode.")
+        st.write(
+            "Run `notebooks/01_uc_setup` → `02_generate_bronze`, then run the DLT pipeline, then "
+            "`03_forecast_weekly_mlflow` → `04_post_forecast_kpis` → `05_ml_late_risk`. "
+            "After that, toggle off Mock mode."
+        )
 
     if not cfg.databricks_host or not cfg.databricks_http_path:
         st.info("Real data mode needs `DATABRICKS_HOST` and `DATABRICKS_HTTP_PATH`. Mock mode always works.")
@@ -144,7 +148,7 @@ def render(cfg: AppConfig, use_mock: bool) -> None:
 - Gold contract: `control_tower_weekly`, `weekly_demand_actual`, `order_late_risk_scored`, KPI tables
 
 **MLflow (real ML in the loop)**
-- Train/register: `notebooks/07_ml_in_loop_late_risk.py`
+- Train/register: `notebooks/05_ml_late_risk.py`
 - Output: `order_late_risk_scored` (used directly in Dashboard + Scenarios)
 
 **Genie (optional, same Gold data)**

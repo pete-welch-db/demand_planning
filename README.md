@@ -12,19 +12,19 @@ This repo contains Databricks “source format” notebooks under `notebooks/`.
 
 Run order:
 
-1. `notebooks/00_setup` – catalog/schema setup + parameters
-2. `notebooks/01_uc_setup` – best-effort UC catalog/schema creation (jobs/workflows)
-3. `notebooks/02_generate_bronze` – generates **Bronze/raw** Delta tables:
+0. `notebooks/00_common_setup` – common config/helpers (imported by the other notebooks via `%run`)
+1. `notebooks/01_uc_setup` – best-effort UC catalog/schema creation (jobs/workflows)
+2. `notebooks/02_generate_bronze` – generates **Bronze/raw** Delta tables:
    - `bronze_erp_orders_raw`
    - `bronze_inventory_positions_raw`
    - `bronze_tms_shipments_raw`
    - `bronze_production_output_raw`
    - `bronze_external_signals_raw` (optional)
-4. Run the **DLT/SDP pipeline** `pipelines/dlt_supply_chain_medallion.py` – produces **Silver/Gold**
-5. `notebooks/03_forecast_weekly_mlflow` – weekly forecasting by `(sku_family, region)` (writes `demand_forecast*`)
-6. `notebooks/04_post_forecast_kpis` – refreshes post-forecast views (e.g., `kpi_mape_weekly`)
-7. `notebooks/05_ml_late_risk` – MLflow training + scoring into Gold (`order_late_risk_scored`)
-8. Optional notebook “dashboard” views:
+3. Run the **DLT/SDP pipeline** `pipelines/dlt_supply_chain_medallion.py` – produces **Silver/Gold**
+4. `notebooks/03_forecast_weekly_mlflow` – weekly forecasting by `(sku_family, region)` (writes `demand_forecast*`)
+5. `notebooks/04_post_forecast_kpis` – refreshes post-forecast views (e.g., `kpi_mape_weekly`)
+6. `notebooks/05_ml_late_risk` – MLflow training + scoring into Gold (`order_late_risk_scored`)
+7. Optional notebook “dashboard” views:
    - `notebooks/90_dashboard_demand_planner`
    - `notebooks/91_dashboard_logistics_service`
    - `notebooks/92_dashboard_sustainability`
@@ -93,7 +93,7 @@ After the pipeline finishes:
 
 This demo includes a minimal “ML that changes a decision” workflow:
 
-- **Train + register model (MLflow)**: run `notebooks/07_ml_in_loop_late_risk`
+- **Train + register model (MLflow)**: run `notebooks/05_ml_late_risk`
   - Trains a logistic regression model to predict late delivery at order time
   - Logs metrics and registers a UC model (default name: `<catalog>.<schema>.order_late_risk_model`)
   - Writes a **Gold** table: `order_late_risk_scored`
@@ -145,7 +145,7 @@ This repo is structured to be deployed as a **Databricks Asset Bundle**:
 
 - **Databricks App**: `app/` (Streamlit) + `app/app.yaml`
 - **DLT/SDP pipeline**: `pipelines/dlt_supply_chain_medallion.py` (declared in `resources/pipelines/medallion.yml`)
-- **ML training job**: `notebooks/07_ml_in_loop_late_risk.py` (declared in `resources/jobs/train_and_register_late_risk.yml`)
+- **ML training job**: `notebooks/05_ml_late_risk.py` (declared in `resources/jobs/train_and_register_late_risk.yml`)
 - **SQL objects/assets**: `sql/kpi_starter_queries.sql`
 
 Bundle entrypoint: `databricks.yml`
@@ -203,7 +203,7 @@ This is automated in the `demand_planning_end_to_end` workflow job.
 - **Business-facing**: use the Streamlit control tower (`app/`) for a clean story and consistent UX.
 - **Technical credibility**: show the real backend assets:
   - Lakeflow SDP/DLT Bronze→Silver→Gold (`pipelines/dlt_supply_chain_medallion.py`)
-  - MLflow training + UC model registry + scoring into Gold (`notebooks/07_ml_in_loop_late_risk.py`)
+  - MLflow training + UC model registry + scoring into Gold (`notebooks/05_ml_late_risk.py`)
   - Genie over the same Gold tables (`GENIE_SPACE_ID`)
   - Deployable packaging via Databricks Asset Bundles (`databricks.yml`)
 

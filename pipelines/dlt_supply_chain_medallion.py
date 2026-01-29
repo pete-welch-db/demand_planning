@@ -5,7 +5,7 @@
 # MAGIC Target: manufacturing supply chain visibility + demand planning demo.
 # MAGIC
 # MAGIC **Setup pattern (no duplication)**
-# MAGIC 1) Run `notebooks/01_generate_synthetic_data` to generate **Bronze/raw** Delta tables:
+# MAGIC 1) Run `notebooks/02_generate_bronze` to generate **Bronze/raw** Delta tables:
 # MAGIC    - `bronze_erp_orders_raw`
 # MAGIC    - `bronze_inventory_positions_raw`
 # MAGIC    - `bronze_tms_shipments_raw`
