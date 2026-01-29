@@ -82,7 +82,10 @@ def get_config() -> AppConfig:
         databricks_catalog=_getenv("DATABRICKS_CATALOG", "welch") or "",
         databricks_schema=_getenv("DATABRICKS_SCHEMA", "demand_planning_demo") or "",
         genie_space_id=_getenv("GENIE_SPACE_ID"),
-        dashboard_embed_url=_getenv("DASHBOARD_EMBED_URL"),
+        dashboard_embed_url=_getenv(
+            "DASHBOARD_EMBED_URL",
+            "https://adb-984752964297111.11.azuredatabricks.net/embed/dashboardsv3/01f0fd5419f41998aa76722bb82632cb?o=984752964297111",
+        ),
         databricks_token=_getenv("DATABRICKS_TOKEN"),
         default_use_mock=(_getenv("USE_MOCK_DATA", "true") or "true").lower() == "true",
     )
