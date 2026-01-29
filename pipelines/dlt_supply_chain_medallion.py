@@ -10,15 +10,13 @@
 # MAGIC    - `bronze_inventory_positions_raw`
 # MAGIC    - `bronze_tms_shipments_raw`
 # MAGIC    - `bronze_production_output_raw`
-# MAGIC    - `bronze_external_signals_raw` (optional)
+# MAGIC    - `bronze_external_signals_raw`
 # MAGIC 2) Run this DLT pipeline to transform **Bronze → Silver → Gold**.
 # MAGIC 3) Run ML notebooks after Silver/Gold exist.
 # MAGIC
 # MAGIC ### Pipeline parameters (Spark conf)
-# MAGIC Configure these in the Pipeline UI under **Configuration**:
-# MAGIC - `demo.source_catalog` (default: target catalog)
-# MAGIC - `demo.source_schema` (default: target schema)
-# MAGIC - `demo.include_external_signals` (default `true`)
+# MAGIC Optional:
+# MAGIC - `demo.late_risk_model_name` to enable MLflow model scoring (otherwise heuristic fallback)
 
 # COMMAND ----------
 import dlt
@@ -29,16 +27,18 @@ from pyspark.sql import functions as F
 # If the model doesn't exist yet, we gracefully degrade by emitting a heuristic risk score.
 
 # COMMAND ----------
-def _conf_bool(key: str, default: bool) -> bool:
-    v = spark.conf.get(key, str(default)).strip().lower()
-    return v in ("1", "true", "t", "yes", "y")
+def _conf_first(keys: list[str]) -> str:
+    for k in keys:
+        v = spark.conf.get(k, "").strip()
+        if v:
+            return v
+    return ""
 
 
-INCLUDE_EXTERNAL = _conf_bool("demo.include_external_signals", True)
-
-# Source tables (Bronze/raw) location. Default to the pipeline target catalog/schema.
-SOURCE_CATALOG = spark.conf.get("demo.source_catalog", spark.conf.get("pipelines.catalog", "")).strip()
-SOURCE_SCHEMA = spark.conf.get("demo.source_schema", spark.conf.get("pipelines.target", "")).strip()
+# Read Bronze/raw inputs from the pipeline's configured catalog/schema (no extra config knobs).
+SOURCE_CATALOG = _conf_first(["pipelines.catalog"])
+# DLT uses "target" for schema in the UI/config; some runtimes also expose pipelines.targetSchema / pipelines.schema.
+SOURCE_SCHEMA = _conf_first(["pipelines.target", "pipelines.schema", "pipelines.targetSchema"])
 
 def _src_table(name: str) -> str:
     return f"`{SOURCE_CATALOG}`.`{SOURCE_SCHEMA}`.`{name}`"
@@ -74,8 +74,6 @@ def bronze_production_output_raw():
 
 @dlt.view(name="bronze_external_signals_raw")
 def bronze_external_signals_raw():
-    if not INCLUDE_EXTERNAL:
-        return spark.createDataFrame([], "date date, region string, construction_index double, precipitation_mm double, avg_temp_c double")
     return spark.table(_src_table("bronze_external_signals_raw"))
 
 

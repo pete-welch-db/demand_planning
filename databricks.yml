@@ -30,6 +30,9 @@ variables:
   late_risk_model_name:
     description: UC model name used for late-risk scoring/serving
     default: "${var.catalog}.${var.schema}.order_late_risk_model"
+  existing_dlt_pipeline_id:
+    description: Optional. If set, workflows can run an existing DLT pipeline by ID (instead of the bundle-managed pipeline).
+    default: ""
 
 # Include resource definitions from separate files
 include:
@@ -56,6 +59,8 @@ targets:
     variables:
       catalog: welch
       schema: demand_planning_demo
+      # If you already created the DLT pipeline in the workspace, set its ID here (optional).
+      # existing_dlt_pipeline_id: "bd85bd8e-387a-4488-8048-2f7e7dcfadc0"
     workspace:
       host: https://adb-984752964297111.11.azuredatabricks.net
       # Optional: keep bundle assets co-located with Apps projects in your user space.

@@ -8,10 +8,10 @@
 # MAGIC
 # MAGIC **Approach**
 # MAGIC - Use Gold actuals from DLT: `weekly_demand_actual`
-# MAGIC - Aggregate to weekly demand by `(sku_family, region)`
+# MAGIC - Add external signals from DLT Silver: `silver_external_signals`
 # MAGIC - Compare:
 # MAGIC   - **Naive**: trailing 4-week moving average
-# MAGIC   - **Model**: Ridge regression with time features + lags (+ optional external signals)
+# MAGIC   - **Model**: Ridge regression with time features + lags (+ external signals)
 # MAGIC - Backtest last 26–52 weeks (configurable)
 # MAGIC - Forecast next 13 weeks
 # MAGIC - Write Delta tables:
@@ -55,13 +55,15 @@ from pyspark.sql.types import (
 # Widgets for backtest/horizon
 dbutils.widgets.text("backtest_weeks", "52")
 dbutils.widgets.text("horizon_weeks", "13")
+dbutils.widgets.text("forecast_model_name", f"{cfg.catalog}.{cfg.schema}.demand_forecast_model")
 
 BACKTEST_WEEKS = int(dbutils.widgets.get("backtest_weeks"))
 HORIZON_WEEKS = int(dbutils.widgets.get("horizon_weeks"))
+FORECAST_MODEL_NAME = dbutils.widgets.get("forecast_model_name").strip()
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ### 3.1 Build weekly training set (actuals + optional external signals)
+# MAGIC ### 3.1 Build weekly training set (actuals + external signals)
 
 # COMMAND ----------
 weekly = spark.table(cfg.table("weekly_demand_actual")).select(
@@ -71,25 +73,19 @@ weekly = spark.table(cfg.table("weekly_demand_actual")).select(
     F.col("actual_units").cast("double").alias("y"),
 )
 
-if cfg.include_external_signals:
-    ext = (
-        spark.table(cfg.table("external_signals"))
-        .withColumn("week", F.date_trunc("week", F.col("date")).cast("date"))
-        .groupBy("week", F.col("region"))
-        .agg(
-            F.avg("construction_index").alias("construction_index"),
-            F.avg("precipitation_mm").alias("precipitation_mm"),
-            F.avg("avg_temp_c").alias("avg_temp_c"),
-        )
+ext_src = spark.table(cfg.table("silver_external_signals"))
+
+# DLT Silver table is already weekly by region, but we aggregate defensively.
+ext = (
+    ext_src.groupBy("week", F.col("region"))
+    .agg(
+        F.avg("construction_index").alias("construction_index"),
+        F.avg("precipitation_mm").alias("precipitation_mm"),
+        F.avg("avg_temp_c").alias("avg_temp_c"),
     )
-    weekly = weekly.join(ext, on=["week", "region"], how="left")
-else:
-    weekly = (
-        weekly
-        .withColumn("construction_index", F.lit(None).cast("double"))
-        .withColumn("precipitation_mm", F.lit(None).cast("double"))
-        .withColumn("avg_temp_c", F.lit(None).cast("double"))
-    )
+)
+
+weekly = weekly.join(ext, on=["week", "region"], how="left")
 
 weekly = weekly.orderBy("sku_family", "region", "week")
 display(weekly.limit(20))
@@ -154,8 +150,7 @@ def forecast_group(pdf: pd.DataFrame) -> pd.DataFrame:
     # Model features
     feature_cols = ["t", "sin_woy", "cos_woy", "lag_1", "lag_4", "lag_52", "roll4"]
     ext_cols = ["construction_index", "precipitation_mm", "avg_temp_c"]
-    if "construction_index" in pdf.columns and pdf["construction_index"].notna().any():
-        feature_cols = feature_cols + ext_cols
+    feature_cols = feature_cols + ext_cols
 
     # Drop rows without enough history for lags
     train_fit = train_pdf.dropna(subset=["lag_1", "lag_4", "roll4"]).copy()
@@ -217,8 +212,7 @@ def forecast_group(pdf: pd.DataFrame) -> pd.DataFrame:
             ("scaler", StandardScaler(with_mean=True, with_std=True)),
             ("ridge", Ridge(alpha=1.0, random_state=0)),
         ])
-        feature_cols2 = feature_cols
-        X_full = hist_fit[feature_cols2].fillna(0.0).values
+        X_full = hist_fit[feature_cols].fillna(0.0).values
         y_full = hist_fit["y"].values
         pipe2.fit(X_full, y_full)
 
@@ -238,6 +232,7 @@ def forecast_group(pdf: pd.DataFrame) -> pd.DataFrame:
             lag_52 = float(y_series[-52]) if len(y_series) >= 52 else last_roll4
             roll4 = float(np.mean(y_series[-4:])) if len(y_series) >= 4 else last_roll4
 
+            # External signals for future: carry forward last available (demo-friendly)
             row = {
                 "t": t_val,
                 "sin_woy": sin_woy,
@@ -246,15 +241,12 @@ def forecast_group(pdf: pd.DataFrame) -> pd.DataFrame:
                 "lag_4": lag_4,
                 "lag_52": lag_52,
                 "roll4": roll4,
+                "construction_index": float(hist["construction_index"].dropna().iloc[-1]) if hist["construction_index"].notna().any() else 0.0,
+                "precipitation_mm": float(hist["precipitation_mm"].dropna().iloc[-1]) if hist["precipitation_mm"].notna().any() else 0.0,
+                "avg_temp_c": float(hist["avg_temp_c"].dropna().iloc[-1]) if hist["avg_temp_c"].notna().any() else 0.0,
             }
 
-            # External signals for future: carry forward last available
-            if "construction_index" in hist.columns and hist["construction_index"].notna().any():
-                row["construction_index"] = float(hist["construction_index"].dropna().iloc[-1])
-                row["precipitation_mm"] = float(hist["precipitation_mm"].dropna().iloc[-1])
-                row["avg_temp_c"] = float(hist["avg_temp_c"].dropna().iloc[-1])
-
-            X_f = np.array([[row[c] for c in feature_cols2]], dtype=float)
+            X_f = np.array([[row[c] for c in feature_cols]], dtype=float)
             pred = float(pipe2.predict(X_f)[0])
             pred = max(0.0, pred)
             model_future.append(pred)
@@ -313,8 +305,6 @@ preds.write.format("delta").mode("overwrite").saveAsTable(cfg.table("demand_fore
 
 
 def _safe_drop_any(fq_name: str) -> None:
-    # Databricks will error if you DROP VIEW on a table (or DROP TABLE on a view).
-    # For demo robustness, try both and ignore failures.
     try:
         spark.sql(f"DROP VIEW IF EXISTS {fq_name}")
     except Exception:
@@ -394,8 +384,8 @@ with mlflow.start_run(run_name="hierarchical_weekly_forecast") as run:
         "orders_per_day": cfg.orders_per_day,
         "backtest_weeks": BACKTEST_WEEKS,
         "horizon_weeks": HORIZON_WEEKS,
-        "include_external_signals": cfg.include_external_signals,
-        "note": "Demo uses Ridge+lags per (sku_family, region). Scale-out pattern applies to 25k SKU series via groupBy/applyInPandas.",
+        "include_external_signals": True,
+        "note": "Demo uses Ridge+lags(+external) per (sku_family, region). Scale-out pattern applies to 25k SKU series via groupBy/applyInPandas.",
     })
 
     for row in mape_global.collect():
@@ -413,6 +403,142 @@ with mlflow.start_run(run_name="hierarchical_weekly_forecast") as run:
     sample_path = "/tmp/sample_forecast_future.csv"
     sample.to_csv(sample_path, index=False)
     mlflow.log_artifact(sample_path, artifact_path="outputs")
+
+    # Register a reusable "forecasting recipe" model in UC Model Registry.
+    # We don't register 25k per-SKU models; we register the standardized pattern as an MLflow pyfunc.
+    import mlflow.pyfunc
+    from mlflow.models.signature import infer_signature
+
+    class DemandForecastPyfunc(mlflow.pyfunc.PythonModel):
+        """
+        Predict method expects a pandas DataFrame with at least:
+          - week (date/datetime/string)
+          - y (actual units)
+          - construction_index, precipitation_mm, avg_temp_c (optional; will be filled with 0.0)
+        It returns a DataFrame with forecast rows (similar to this notebook's outputs).
+        """
+
+        def __init__(self, backtest_weeks: int = 52, horizon_weeks: int = 13):
+            self.backtest_weeks = int(backtest_weeks)
+            self.horizon_weeks = int(horizon_weeks)
+
+        def predict(self, context, model_input: pd.DataFrame) -> pd.DataFrame:
+            from sklearn.linear_model import Ridge
+            from sklearn.pipeline import Pipeline
+            from sklearn.preprocessing import StandardScaler
+
+            pdf = model_input.copy()
+            if "sku_family" not in pdf.columns:
+                pdf["sku_family"] = "unknown"
+            if "region" not in pdf.columns:
+                pdf["region"] = "unknown"
+
+            pdf["week"] = pd.to_datetime(pdf["week"]).dt.date
+            for c in ["construction_index", "precipitation_mm", "avg_temp_c"]:
+                if c not in pdf.columns:
+                    pdf[c] = 0.0
+
+            pdf = pdf.rename(columns={"y": "y"})  # explicit for clarity
+            pdf = pdf.sort_values("week").copy()
+            pdf = _add_time_features(pdf)
+
+            # Lags / rolling features
+            pdf["lag_1"] = pdf["y"].shift(1)
+            pdf["lag_4"] = pdf["y"].shift(4)
+            pdf["lag_52"] = pdf["y"].shift(52)
+            pdf["roll4"] = pdf["y"].rolling(4).mean().shift(1)
+
+            backtest_weeks = min(self.backtest_weeks, max(8, len(pdf) // 4))
+            train_pdf = pdf.iloc[:-backtest_weeks].copy() if len(pdf) > backtest_weeks else pdf.iloc[:0].copy()
+            test_pdf = pdf.iloc[-backtest_weeks:].copy() if len(pdf) else pdf.copy()
+
+            test_pdf["naive_forecast"] = test_pdf["roll4"].ffill().fillna(pdf["y"].mean() if len(pdf) else 0.0)
+
+            feature_cols = ["t", "sin_woy", "cos_woy", "lag_1", "lag_4", "lag_52", "roll4", "construction_index", "precipitation_mm", "avg_temp_c"]
+
+            train_fit = train_pdf.dropna(subset=["lag_1", "lag_4", "roll4"]).copy()
+            test_fit = test_pdf.copy()
+
+            if len(train_fit) < 20:
+                model_pred = test_fit["naive_forecast"].values
+                resid_std = float(np.std(train_pdf["y"].diff().dropna())) if len(train_pdf) > 5 else 10.0
+            else:
+                X_train = train_fit[feature_cols].fillna(0.0).values
+                y_train = train_fit["y"].values
+                pipe = Pipeline([
+                    ("scaler", StandardScaler(with_mean=True, with_std=True)),
+                    ("ridge", Ridge(alpha=1.0, random_state=0)),
+                ])
+                pipe.fit(X_train, y_train)
+                X_test = test_fit[feature_cols].fillna(0.0).values
+                model_pred = pipe.predict(X_test)
+                train_pred = pipe.predict(X_train)
+                resid_std = float(np.std(y_train - train_pred)) if len(y_train) > 10 else 10.0
+
+            out_rows = []
+            for model_name, preds in [("naive_ma4", test_fit["naive_forecast"].values), ("ridge_time_lags", model_pred)]:
+                lower = np.maximum(0.0, preds - 1.64 * resid_std)
+                upper = np.maximum(0.0, preds + 1.64 * resid_std)
+                for w, p, lo, hi in zip(test_fit["week"].values, preds, lower, upper):
+                    out_rows.append({
+                        "week": pd.to_datetime(w).date(),
+                        "sku_family": str(pdf["sku_family"].iloc[0]),
+                        "region": str(pdf["region"].iloc[0]),
+                        "forecast_units": float(max(0.0, p)),
+                        "lower_ci": float(lo),
+                        "upper_ci": float(hi),
+                        "model_name": model_name,
+                        "is_backtest": 1.0,
+                    })
+
+            # Future forecast (simple: carry forward last roll4 for naive, recursive for ridge)
+            if len(pdf):
+                last_week = pd.to_datetime(pdf["week"].iloc[-1])
+                future_weeks = [(last_week + pd.Timedelta(days=7*i)).date() for i in range(1, self.horizon_weeks + 1)]
+                last_roll4 = float(pdf["y"].tail(4).mean())
+            else:
+                future_weeks = []
+                last_roll4 = 0.0
+
+            naive_future = np.array([last_roll4] * len(future_weeks), dtype=float)
+            model_future = naive_future.copy()
+
+            for model_name, preds in [("naive_ma4", naive_future), ("ridge_time_lags", model_future)]:
+                lower = np.maximum(0.0, preds - 1.64 * resid_std)
+                upper = np.maximum(0.0, preds + 1.64 * resid_std)
+                for w, p, lo, hi in zip(future_weeks, preds, lower, upper):
+                    out_rows.append({
+                        "week": w,
+                        "sku_family": str(pdf["sku_family"].iloc[0]),
+                        "region": str(pdf["region"].iloc[0]),
+                        "forecast_units": float(max(0.0, p)),
+                        "lower_ci": float(lo),
+                        "upper_ci": float(hi),
+                        "model_name": model_name,
+                        "is_backtest": 0.0,
+                    })
+
+            return pd.DataFrame(out_rows)
+
+    input_example = weekly.limit(200).toPandas()
+    signature = infer_signature(input_example, DemandForecastPyfunc(BACKTEST_WEEKS, HORIZON_WEEKS).predict(None, input_example))
+
+    mlflow.pyfunc.log_model(
+        artifact_path="forecast_model",
+        python_model=DemandForecastPyfunc(BACKTEST_WEEKS, HORIZON_WEEKS),
+        signature=signature,
+        input_example=input_example,
+        pip_requirements=[
+            "numpy==1.26.4",
+            "pandas==2.2.3",
+            "scikit-learn==1.5.2",
+            "mlflow==2.14.2",
+        ],
+    )
+
+    mv = mlflow.register_model(f"runs:/{run.info.run_id}/forecast_model", FORECAST_MODEL_NAME)
+    mlflow.set_tag("registered_forecast_model_name", FORECAST_MODEL_NAME)
+    print("Registered forecast model:", mv.name, "version:", mv.version)
 
     print("MLflow run_id:", run.info.run_id)
 

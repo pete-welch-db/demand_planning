@@ -186,6 +186,12 @@ export DATABRICKS_CONFIG_PROFILE=azure
 
 This is automated in the `demand_planning_end_to_end` workflow job.
 
+### If you already created the DLT pipeline in the UI
+
+If you already created a DLT pipeline in the workspace (and just want the bundle to *run it*), set:
+- `existing_dlt_pipeline_id` in `databricks.yml` (under your target), or override at runtime, then run:
+  - `demand_planning_end_to_end_existing_dlt`
+
 
 ## Requirements / assumptions
 

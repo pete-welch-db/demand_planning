@@ -74,17 +74,10 @@ cutoff_train = spark.sql(f"SELECT date_sub(to_date('{max_order_date}'), {TRAIN_L
 
 base = orders.where((F.col("order_date") >= F.lit(cutoff_train)) & (F.col("order_date") <= F.lit(max_order_date)))
 
-# Optional external signals (weekly, by region)
+# External signals (weekly, by region) from DLT
 ext_tbl = f"{cfg.fq_schema}.silver_external_signals"
-if spark.catalog.tableExists(ext_tbl.replace("`", "")):
-    ext = spark.table(ext_tbl).select("week", "region", "construction_index", "precipitation_mm", "avg_temp_c")
-    base = base.join(ext, (base.order_week == ext.week) & (base.customer_region == ext.region), "left").drop(ext.week).drop(ext.region)
-else:
-    base = (
-        base.withColumn("construction_index", F.lit(None).cast("double"))
-            .withColumn("precipitation_mm", F.lit(None).cast("double"))
-            .withColumn("avg_temp_c", F.lit(None).cast("double"))
-    )
+ext = spark.table(ext_tbl).select("week", "region", "construction_index", "precipitation_mm", "avg_temp_c")
+base = base.join(ext, (base.order_week == ext.week) & (base.customer_region == ext.region), "left").drop(ext.week).drop(ext.region)
 
 # Features available at order time
 feat = (

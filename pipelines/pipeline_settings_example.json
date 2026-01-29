@@ -11,9 +11,7 @@
     }
   ],
   "configuration": {
-    "demo.include_external_signals": "true",
-    "demo.source_catalog": "welch",
-    "demo.source_schema": "demand_planning_demo"
+    "demo.late_risk_model_name": "welch.demand_planning_demo.order_late_risk_model"
   }
 }
 

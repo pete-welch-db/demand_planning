@@ -12,7 +12,7 @@
 # MAGIC - `bronze_inventory_positions_raw`
 # MAGIC - `bronze_tms_shipments_raw`
 # MAGIC - `bronze_production_output_raw`
-# MAGIC - `bronze_external_signals_raw` (optional)
+# MAGIC - `bronze_external_signals_raw`
 
 # COMMAND ----------
 # MAGIC %run ./00_common_setup
@@ -102,7 +102,7 @@ display(customers.groupBy("channel").count())
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ### 2.2 Calendar + optional external signals (construction/weather)
+# MAGIC ### 2.2 Calendar + external signals (construction/weather)
 
 # COMMAND ----------
 bounds = demo_date_bounds(cfg.years)
@@ -123,45 +123,43 @@ dates = (
     .withColumn("weekday_factor", F.when(F.col("dow").isin([1, 7]), F.lit(0.85)).otherwise(F.lit(1.0)))
 )
 
-if cfg.include_external_signals:
-    external = (
-        dates.crossJoin(spark.createDataFrame([(r,) for r in regions], ["region"]))
-        .withColumn(
-            "construction_index",
-            (F.lit(85.0)
-             + F.col("season_annual") * F.lit(25.0)
-             + F.when(F.col("region").isin(["Northeast", "Midwest"]), F.lit(-5.0)).otherwise(F.lit(0.0))
-             + F.randn(7) * F.lit(4.0)
-            ).cast("double")
-        )
-        .withColumn(
-            "avg_temp_c",
-            (F.lit(10.0)
-             + F.sin(2 * F.lit(3.1415926535) * F.col("doy") / F.lit(365.25)) * F.lit(12.0)
-             + F.when(F.col("region") == "SouthCentral", F.lit(6.0))
-               .when(F.col("region") == "West", F.lit(4.0))
-               .when(F.col("region") == "Northeast", F.lit(-2.0))
-               .otherwise(F.lit(0.0))
-             + F.randn(8) * F.lit(2.0)
-            ).cast("double")
-        )
-        .withColumn(
-            "precipitation_mm",
-            F.greatest(
-                F.lit(0.0),
-                (F.lit(2.0)
-                 + (1.0 - F.col("season_annual")) * F.lit(4.0)  # a bit wetter in “off season”
-                 + F.when(F.col("region") == "Southeast", F.lit(1.5)).otherwise(F.lit(0.0))
-                 + F.randn(9) * F.lit(2.5)
-                ),
-            ).cast("double"),
-        )
-        .select(F.col("date"), F.col("region"), "construction_index", "precipitation_mm", "avg_temp_c")
+external = (
+    dates.crossJoin(spark.createDataFrame([(r,) for r in regions], ["region"]))
+    .withColumn(
+        "construction_index",
+        (F.lit(85.0)
+         + F.col("season_annual") * F.lit(25.0)
+         + F.when(F.col("region").isin(["Northeast", "Midwest"]), F.lit(-5.0)).otherwise(F.lit(0.0))
+         + F.randn(7) * F.lit(4.0)
+        ).cast("double")
     )
+    .withColumn(
+        "avg_temp_c",
+        (F.lit(10.0)
+         + F.sin(2 * F.lit(3.1415926535) * F.col("doy") / F.lit(365.25)) * F.lit(12.0)
+         + F.when(F.col("region") == "SouthCentral", F.lit(6.0))
+           .when(F.col("region") == "West", F.lit(4.0))
+           .when(F.col("region") == "Northeast", F.lit(-2.0))
+           .otherwise(F.lit(0.0))
+         + F.randn(8) * F.lit(2.0)
+        ).cast("double")
+    )
+    .withColumn(
+        "precipitation_mm",
+        F.greatest(
+            F.lit(0.0),
+            (F.lit(2.0)
+             + (1.0 - F.col("season_annual")) * F.lit(4.0)  # a bit wetter in “off season”
+             + F.when(F.col("region") == "Southeast", F.lit(1.5)).otherwise(F.lit(0.0))
+             + F.randn(9) * F.lit(2.5)
+            ),
+        ).cast("double"),
+    )
+    .select(F.col("date"), F.col("region"), "construction_index", "precipitation_mm", "avg_temp_c")
+)
 
-    (external.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_external_signals_raw")))
-
-    display(spark.table(cfg.table("bronze_external_signals_raw")).limit(5))
+(external.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_external_signals_raw")))
+display(spark.table(cfg.table("bronze_external_signals_raw")).limit(5))
 
 # COMMAND ----------
 # MAGIC %md
@@ -209,11 +207,12 @@ orders = (
 # Add demand seasonality via calendar + external signals
 orders = orders.join(dates.select("date", "season_annual", "weekday_factor").withColumnRenamed("date", "order_date"), on="order_date", how="left")
 
-if cfg.include_external_signals:
-    ext = spark.table(cfg.table("bronze_external_signals_raw")).withColumnRenamed("date", "order_date").withColumnRenamed("region", "customer_region")
-    orders = orders.join(ext, on=["order_date", "customer_region"], how="left")
-else:
-    orders = orders.withColumn("construction_index", F.lit(100.0)).withColumn("precipitation_mm", F.lit(2.0)).withColumn("avg_temp_c", F.lit(12.0))
+ext = (
+    spark.table(cfg.table("bronze_external_signals_raw"))
+    .withColumnRenamed("date", "order_date")
+    .withColumnRenamed("region", "customer_region")
+)
+orders = orders.join(ext, on=["order_date", "customer_region"], how="left")
 
 # Units ordered: baseline by family, with “project spike” behavior and construction index sensitivity
 orders = (
@@ -522,7 +521,7 @@ for t in [
     "bronze_tms_shipments_raw",
     "bronze_inventory_positions_raw",
     "bronze_production_output_raw",
-] + (["bronze_external_signals_raw"] if cfg.include_external_signals else []):
+] + ["bronze_external_signals_raw"]:
     n = spark.table(cfg.table(t)).count()
     print(f"{t}: {n:,}")
 

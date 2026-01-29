@@ -22,8 +22,6 @@ dbutils.widgets.text("catalog", "welch")  # set to your UC catalog (or "hive_met
 dbutils.widgets.text("schema", "demand_planning_demo")
 dbutils.widgets.text("run_id", "demo_run")  # include in table names if you want multiple isolated runs
 
-dbutils.widgets.dropdown("include_external_signals", "true", ["true", "false"])
-
 # Scale controls (defaults are moderate + fast)
 dbutils.widgets.text("years", "3")
 dbutils.widgets.text("num_plants", "10")
@@ -39,7 +37,6 @@ class DemoConfig:
     catalog: str
     schema: str
     run_id: str
-    include_external_signals: bool
     years: int
     num_plants: int
     num_dcs: int
@@ -62,7 +59,6 @@ def get_config() -> DemoConfig:
         catalog=dbutils.widgets.get("catalog").strip(),
         schema=dbutils.widgets.get("schema").strip(),
         run_id=dbutils.widgets.get("run_id").strip(),
-        include_external_signals=dbutils.widgets.get("include_external_signals").lower() == "true",
         years=int(dbutils.widgets.get("years")),
         num_plants=int(dbutils.widgets.get("num_plants")),
         num_dcs=int(dbutils.widgets.get("num_dcs")),
