@@ -4,141 +4,49 @@
       "name": "kpi_snapshot",
       "displayName": "KPI Snapshot (13w)",
       "queryLines": [
-        "WITH ct AS (",
-        "  SELECT *",
-        "  FROM welch.demand_planning_demo.control_tower_weekly",
-        "  WHERE week >= date_sub(current_date(), 91)",
-        "),",
-        "otif AS (",
-        "  SELECT avg(otif_rate) AS otif_rate",
-        "  FROM ct",
-        "),",
-        "freight AS (",
-        "  SELECT avg(freight_cost_per_ton) AS freight_cost_per_ton,",
-        "         avg(premium_freight_pct) AS premium_freight_pct,",
-        "         avg(co2_kg_per_ton) AS co2_kg_per_ton",
-        "  FROM ct",
-        "),",
-        "energy AS (",
-        "  SELECT avg(energy_kwh_per_unit) AS energy_kwh_per_unit",
-        "  FROM ct",
-        "),",
-        "risk AS (",
-        "  SELECT avg(late_risk_prob) AS late_risk_prob",
-        "  FROM welch.demand_planning_demo.order_late_risk_scored",
-        "  WHERE order_date >= date_sub(current_date(), 91)",
-        ")",
-        "SELECT",
-        "  otif.otif_rate,",
-        "  freight.freight_cost_per_ton,",
-        "  freight.premium_freight_pct,",
-        "  freight.co2_kg_per_ton,",
-        "  energy.energy_kwh_per_unit,",
-        "  risk.late_risk_prob",
-        "FROM otif CROSS JOIN freight CROSS JOIN energy CROSS JOIN risk"
+        "WITH ct AS (  SELECT *  FROM welch.demand_planning_demo.control_tower_weekly  WHERE week >= date_sub(current_date(), 91)),otif AS (  SELECT avg(otif_rate) AS otif_rate  FROM ct),freight AS (  SELECT avg(freight_cost_per_ton) AS freight_cost_per_ton,         avg(premium_freight_pct) AS premium_freight_pct,         avg(co2_kg_per_ton) AS co2_kg_per_ton  FROM ct),energy AS (  SELECT avg(energy_kwh_per_unit) AS energy_kwh_per_unit  FROM ct),risk AS (  SELECT avg(late_risk_prob) AS late_risk_prob  FROM welch.demand_planning_demo.order_late_risk_scored  WHERE order_date >= date_sub(current_date(), 91))SELECT  otif.otif_rate,  freight.freight_cost_per_ton,  freight.premium_freight_pct,  freight.co2_kg_per_ton,  energy.energy_kwh_per_unit,  risk.late_risk_prob FROM otif CROSS JOIN freight CROSS JOIN energy CROSS JOIN risk"
       ]
     },
     {
       "name": "otif_trend",
       "displayName": "OTIF Trend (Weekly)",
       "queryLines": [
-        "SELECT",
-        "  week,",
-        "  region,",
-        "  avg(otif_rate) AS otif_rate",
-        "FROM welch.demand_planning_demo.control_tower_weekly",
-        "GROUP BY 1,2",
-        "ORDER BY week, region"
+        "SELECT  week,  region,  avg(otif_rate) AS otif_rate FROM welch.demand_planning_demo.control_tower_weekly GROUP BY 1,2 ORDER BY week, region"
       ]
     },
     {
       "name": "freight_lanes_13w",
       "displayName": "Freight Lanes (13w)",
       "queryLines": [
-        "SELECT",
-        "  plant_id,",
-        "  dc_id,",
-        "  avg(freight_cost_per_ton) AS freight_cost_per_ton,",
-        "  avg(premium_freight_pct) AS premium_freight_pct,",
-        "  avg(co2_kg_per_ton) AS co2_kg_per_ton",
-        "FROM welch.demand_planning_demo.control_tower_weekly",
-        "WHERE week >= date_sub(current_date(), 91)",
-        "GROUP BY 1,2",
-        "ORDER BY freight_cost_per_ton DESC",
-        "LIMIT 25"
+        "SELECT  plant_id,  dc_id,  avg(freight_cost_per_ton) AS freight_cost_per_ton,  avg(premium_freight_pct) AS premium_freight_pct,  avg(co2_kg_per_ton) AS co2_kg_per_ton FROM welch.demand_planning_demo.control_tower_weekly WHERE week >= date_sub(current_date(), 91)GROUP BY 1,2 ORDER BY freight_cost_per_ton DESC LIMIT 25"
       ]
     },
     {
       "name": "energy_trend",
       "displayName": "Energy Intensity (Weekly)",
       "queryLines": [
-        "SELECT",
-        "  week,",
-        "  plant_id,",
-        "  sku_family,",
-        "  avg(energy_kwh_per_unit) AS energy_kwh_per_unit",
-        "FROM welch.demand_planning_demo.kpi_energy_intensity_weekly",
-        "GROUP BY 1,2,3",
-        "ORDER BY week, plant_id, sku_family"
+        "SELECT  week,  plant_id,  sku_family,  avg(energy_kwh_per_unit) AS energy_kwh_per_unit FROM welch.demand_planning_demo.kpi_energy_intensity_weekly GROUP BY 1,2,3 ORDER BY week, plant_id, sku_family"
       ]
     },
     {
       "name": "late_risk_hotspots",
       "displayName": "Late-Risk Hotspots (4w)",
       "queryLines": [
-        "SELECT",
-        "  customer_region,",
-        "  sku_family,",
-        "  avg(late_risk_prob) AS avg_late_risk_prob",
-        "FROM welch.demand_planning_demo.order_late_risk_scored",
-        "WHERE order_date >= date_sub(current_date(), 28)",
-        "GROUP BY 1,2",
-        "ORDER BY avg_late_risk_prob DESC"
+        "SELECT  customer_region,  sku_family,  avg(late_risk_prob) AS avg_late_risk_prob FROM welch.demand_planning_demo.order_late_risk_scored WHERE order_date >= date_sub(current_date(), 28) GROUP BY 1,2 ORDER BY avg_late_risk_prob DESC"
       ]
     },
     {
       "name": "late_risk_orders",
       "displayName": "Highest Late-Risk Orders (30d)",
       "queryLines": [
-        "SELECT",
-        "  order_date,",
-        "  customer_region,",
-        "  channel,",
-        "  plant_id,",
-        "  dc_id,",
-        "  sku_family,",
-        "  units_ordered,",
-        "  days_to_request,",
-        "  late_risk_prob,",
-        "  late_risk_flag,",
-        "  actual_late",
-        "FROM welch.demand_planning_demo.order_late_risk_scored",
-        "WHERE order_date >= date_sub(current_date(), 30)",
-        "ORDER BY late_risk_prob DESC",
-        "LIMIT 50"
+        "SELECT  order_date,  customer_region,  channel,  plant_id,  dc_id,  sku_family,  units_ordered,  days_to_request,  late_risk_prob,  late_risk_flag,  actual_late FROM welch.demand_planning_demo.order_late_risk_scored WHERE order_date >= date_sub(current_date(), 30) ORDER BY late_risk_prob DESC LIMIT 50"
       ]
     },
     {
       "name": "demand_vs_forecast",
       "displayName": "Demand vs Forecast (Weekly)",
       "queryLines": [
-        "WITH a AS (",
-        "  SELECT week, sku_family, region, actual_units",
-        "  FROM welch.demand_planning_demo.weekly_demand_actual",
-        "),",
-        "f AS (",
-        "  SELECT week, sku_family, region, forecast_units",
-        "  FROM welch.demand_planning_demo.demand_forecast",
-        ")",
-        "SELECT",
-        "  a.week,",
-        "  a.sku_family,",
-        "  a.region,",
-        "  a.actual_units,",
-        "  f.forecast_units",
-        "FROM a",
-        "LEFT JOIN f USING (week, sku_family, region)",
-        "ORDER BY a.week"
+        "WITH a AS (  SELECT week, sku_family, region, actual_units  FROM welch.demand_planning_demo.weekly_demand_actual),f AS (  SELECT week, sku_family, region, forecast_units  FROM welch.demand_planning_demo.demand_forecast) SELECT  a.week,  a.sku_family,  a.region,  a.actual_units,  f.forecast_units FROM a LEFT JOIN f USING (week, sku_family, region)ORDER BY a.week"
       ]
     }
   ],
@@ -152,9 +60,9 @@
             "name": "header_text",
             "multilineTextboxSpec": {
               "lines": [
-                "# 🚚 Demand Planning Control Tower\\n",
-                "\\n",
-                "**Unified visibility across service, cost, and sustainability** | *Click charts to cross-filter*"
+                "# 🚚 Demand Planning Control Tower\n",
+                "\n",
+                "# **Unified visibility across service, cost, and sustainability**"
               ]
             }
           },
@@ -162,7 +70,7 @@
             "x": 0,
             "y": 0,
             "width": 8,
-            "height": 1
+            "height": 2
           }
         },
         {
@@ -200,7 +108,7 @@
           },
           "position": {
             "x": 0,
-            "y": 1,
+            "y": 2,
             "width": 2,
             "height": 2
           }
@@ -240,7 +148,7 @@
           },
           "position": {
             "x": 2,
-            "y": 1,
+            "y": 2,
             "width": 2,
             "height": 2
           }
@@ -280,7 +188,7 @@
           },
           "position": {
             "x": 4,
-            "y": 1,
+            "y": 2,
             "width": 2,
             "height": 2
           }
@@ -320,7 +228,7 @@
           },
           "position": {
             "x": 6,
-            "y": 1,
+            "y": 2,
             "width": 2,
             "height": 2
           }
@@ -382,7 +290,7 @@
           },
           "position": {
             "x": 0,
-            "y": 3,
+            "y": 4,
             "width": 5,
             "height": 3
           }
@@ -436,7 +344,7 @@
           },
           "position": {
             "x": 5,
-            "y": 3,
+            "y": 4,
             "width": 3,
             "height": 6
           }
@@ -501,7 +409,7 @@
           },
           "position": {
             "x": 0,
-            "y": 6,
+            "y": 7,
             "width": 5,
             "height": 3
           }
@@ -518,9 +426,7 @@
             "name": "ops_header",
             "multilineTextboxSpec": {
               "lines": [
-                "# 🚚 Operations & Risk\\n",
-                "\\n",
-                "**Where should we protect service this week?** | *Use late-risk + lane cost to prioritize actions*"
+                "# 🚚 Operations & Risk\\n\\n**Where should we protect service this week?** | *Use late-risk + lane cost to prioritize actions*"
               ]
             }
           },
@@ -729,6 +635,11 @@
       ],
       "pageType": "PAGE_TYPE_CANVAS"
     }
-  ]
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
 }
-
