@@ -5,7 +5,7 @@ resources:
       tasks:
         - task_key: uc_setup
           notebook_task:
-            notebook_path: ${workspace.file_path}/notebooks/08_uc_setup
+            notebook_path: ${workspace.file_path}/notebooks/01_uc_setup
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"

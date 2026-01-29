@@ -13,28 +13,21 @@ This repo contains Databricks “source format” notebooks under `notebooks/`.
 Run order:
 
 1. `notebooks/00_setup` – catalog/schema setup + parameters
-2. `notebooks/01_generate_synthetic_data` – creates Delta tables:
-   - `erp_orders`
-   - `inventory_positions`
-   - `tms_shipments`
-   - `production_output`
-   - `external_signals` (optional)
-3. `notebooks/02_kpis_and_views` – creates curated tables/views for KPIs:
-   - MAPE (weekly) with explicit zero-demand handling
-   - OTIF / Perfect Order proxy
-   - Inventory turns + Days of Supply
-   - Freight cost per ton + premium freight %
-   - CO₂ per ton shipped + energy intensity
-4. `notebooks/03_forecasting_mlflow` – hierarchical weekly forecasting by `(sku_family, region)`:
-   - backtest last 26–52 weeks
-   - 13-week horizon
-   - naive vs model comparison
-   - writes `demand_forecast` Delta table
-   - logs runs & models to MLflow
-5. Dashboards (simple notebook “control tower” views):
-   - `notebooks/04_dashboard_demand_planner`
-   - `notebooks/05_dashboard_logistics_service`
-   - `notebooks/06_dashboard_sustainability`
+2. `notebooks/01_uc_setup` – best-effort UC catalog/schema creation (jobs/workflows)
+3. `notebooks/02_generate_bronze` – generates **Bronze/raw** Delta tables:
+   - `bronze_erp_orders_raw`
+   - `bronze_inventory_positions_raw`
+   - `bronze_tms_shipments_raw`
+   - `bronze_production_output_raw`
+   - `bronze_external_signals_raw` (optional)
+4. Run the **DLT/SDP pipeline** `pipelines/dlt_supply_chain_medallion.py` – produces **Silver/Gold**
+5. `notebooks/03_forecast_weekly_mlflow` – weekly forecasting by `(sku_family, region)` (writes `demand_forecast*`)
+6. `notebooks/04_post_forecast_kpis` – refreshes post-forecast views (e.g., `kpi_mape_weekly`)
+7. `notebooks/05_ml_late_risk` – MLflow training + scoring into Gold (`order_late_risk_scored`)
+8. Optional notebook “dashboard” views:
+   - `notebooks/90_dashboard_demand_planner`
+   - `notebooks/91_dashboard_logistics_service`
+   - `notebooks/92_dashboard_sustainability`
 
 ## Streamlit Control Tower App (mock-first, Databricks SQL optional)
 
@@ -181,6 +174,17 @@ Or set it once:
 export DATABRICKS_CONFIG_PROFILE=azure
 ./deploy.sh azure
 ```
+
+### Recommended run order (when using DLT + ML notebooks)
+
+- `notebooks/01_uc_setup`
+- `notebooks/02_generate_bronze`
+- Run the DLT/SDP pipeline (`pipelines/dlt_supply_chain_medallion.py`)
+- `notebooks/03_forecast_weekly_mlflow`
+- `notebooks/04_post_forecast_kpis`
+- `notebooks/05_ml_late_risk`
+
+This is automated in the `demand_planning_end_to_end` workflow job.
 
 
 ## Requirements / assumptions

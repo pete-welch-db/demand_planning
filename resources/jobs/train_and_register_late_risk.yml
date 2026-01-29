@@ -5,7 +5,7 @@ resources:
       tasks:
         - task_key: train_register
           notebook_task:
-            notebook_path: ${workspace.file_path}/notebooks/07_ml_in_loop_late_risk
+            notebook_path: ${workspace.file_path}/notebooks/05_ml_late_risk
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"

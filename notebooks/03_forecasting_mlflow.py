@@ -35,7 +35,7 @@
 dbutils.library.restartPython()
 
 # COMMAND ----------
-# MAGIC %run ./00_setup
+# MAGIC %run ./00_common_setup
 
 # COMMAND ----------
 import mlflow

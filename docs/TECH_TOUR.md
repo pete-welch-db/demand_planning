@@ -16,6 +16,12 @@
 ### 1) Lakeflow SDP/DLT pipeline
 - `pipelines/dlt_supply_chain_medallion.py`
 - Declared in bundle: `resources/pipelines/medallion.yml`
+- Bronze inputs (generated once):
+  - `bronze_erp_orders_raw`
+  - `bronze_inventory_positions_raw`
+  - `bronze_tms_shipments_raw`
+  - `bronze_production_output_raw`
+  - `bronze_external_signals_raw` (optional)
 - Gold tables the app expects:
   - `control_tower_weekly`
   - `weekly_demand_actual`

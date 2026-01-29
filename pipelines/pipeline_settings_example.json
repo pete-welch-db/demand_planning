@@ -11,13 +11,9 @@
     }
   ],
   "configuration": {
-    "demo.years": "3",
-    "demo.num_plants": "10",
-    "demo.num_dcs": "10",
-    "demo.num_skus": "400",
-    "demo.num_customers": "1500",
-    "demo.orders_per_day": "300",
-    "demo.include_external_signals": "true"
+    "demo.include_external_signals": "true",
+    "demo.source_catalog": "welch",
+    "demo.source_schema": "demand_planning_demo"
   }
 }
 
