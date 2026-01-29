@@ -77,10 +77,10 @@ def get_config() -> AppConfig:
     load_dotenv(override=False)
 
     return AppConfig(
-        databricks_host=_getenv("DATABRICKS_HOST", "") or "",
-        databricks_http_path=_getenv("DATABRICKS_HTTP_PATH", "") or "",
-        databricks_catalog=_getenv("DATABRICKS_CATALOG", "") or "",
-        databricks_schema=_getenv("DATABRICKS_SCHEMA", "") or "",
+        databricks_host=_getenv("DATABRICKS_HOST", "https://adb-984752964297111.11.azuredatabricks.net") or "",
+        databricks_http_path=_getenv("DATABRICKS_HTTP_PATH", "/sql/1.0/warehouses/148ccb90800933a1") or "",
+        databricks_catalog=_getenv("DATABRICKS_CATALOG", "welch") or "",
+        databricks_schema=_getenv("DATABRICKS_SCHEMA", "demand_planning_demo") or "",
         genie_space_id=_getenv("GENIE_SPACE_ID"),
         dashboard_embed_url=_getenv("DASHBOARD_EMBED_URL"),
         databricks_token=_getenv("DATABRICKS_TOKEN"),

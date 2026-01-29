@@ -59,8 +59,8 @@ targets:
     variables:
       catalog: welch
       schema: demand_planning_demo
-      # If you already created the DLT pipeline in the workspace, set its ID here (optional).
-      # existing_dlt_pipeline_id: "bd85bd8e-387a-4488-8048-2f7e7dcfadc0"
+      # Run the existing DLT pipeline already created in the workspace.
+      existing_dlt_pipeline_id: "bd85bd8e-387a-4488-8048-2f7e7dcfadc0"
     workspace:
       host: https://adb-984752964297111.11.azuredatabricks.net
       # Optional: keep bundle assets co-located with Apps projects in your user space.

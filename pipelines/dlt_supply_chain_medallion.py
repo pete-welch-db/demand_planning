@@ -138,8 +138,6 @@ def silver_production_output():
 )
 def silver_external_signals():
     e = dlt.read("bronze_external_signals_raw")
-    if not INCLUDE_EXTERNAL:
-        return spark.createDataFrame([], "week date, region string, construction_index double, precipitation_mm double, avg_temp_c double")
     return (
         e.withColumn("week", F.date_trunc("week", F.col("date")).cast("date"))
         .groupBy("week", "region")
@@ -319,20 +317,13 @@ def order_late_risk_scored():
         .withColumn("actual_late", (~F.col("is_on_time")).cast("int"))
     )
 
-    # Join external signals if enabled (weekly, by region)
-    if INCLUDE_EXTERNAL:
-        ext = dlt.read("silver_external_signals")
-        feat = (
-            feat.join(ext, (feat.order_week == ext.week) & (feat.customer_region == ext.region), "left")
-            .drop(ext.week)
-            .drop(ext.region)
-        )
-    else:
-        feat = (
-            feat.withColumn("construction_index", F.lit(None).cast("double"))
-            .withColumn("precipitation_mm", F.lit(None).cast("double"))
-            .withColumn("avg_temp_c", F.lit(None).cast("double"))
-        )
+    # Join external signals (weekly, by region)
+    ext = dlt.read("silver_external_signals")
+    feat = (
+        feat.join(ext, (feat.order_week == ext.week) & (feat.customer_region == ext.region), "left")
+        .drop(ext.week)
+        .drop(ext.region)
+    )
 
     model_name = spark.conf.get("demo.late_risk_model_name", "").strip()
 
