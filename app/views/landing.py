@@ -1,161 +1,704 @@
-from __future__ import annotations
+"""
+Landing Page
+============
+Pitch-style landing page for the Supply Chain Visibility & Demand Planning demo.
+Tells the story: WHAT, WHY, WHEN, HOW — for executives and planning leaders.
+"""
 
 import streamlit as st
 
-from components.narrative import render_tab_intro
-from config import AppConfig
 
+def render_landing_page():
+    """Render the business-focused landing page for supply chain & demand planning."""
 
-def render(cfg: AppConfig, use_mock: bool) -> None:
-    render_tab_intro(
-        persona="Persona: Executive sponsor + supply chain planning leadership",
-        business_question="How do we unify supply chain data and scale forecasting to 25k SKUs to improve service, cost, and sustainability?",
-        context="This landing page frames the story; use the Dashboard tab for KPIs and drill-downs, Scenarios for value translation, and Assistant for Q&A.",
-    )
-
-    # --- Hero ---
+    # Hero Section
     st.markdown(
         """
-<div class="hero">
-  <div class="hero-title">Demand planning, with end-to-end visibility</div>
-  <p class="hero-narrative">
-    For supply chain demand planners at a regional, freight-sensitive manufacturer.<br/>
-    Unify ERP/WMS/TMS + production signals, forecast demand, and turn insights into action across OTIF, inventory, freight, and sustainability.
-  </p>
-</div>
-        """,
+    <div style="
+        background: linear-gradient(135deg, #10212B 0%, #051017 100%);
+        border-radius: 16px;
+        padding: 48px 40px;
+        margin-bottom: 32px;
+        position: relative;
+        overflow: hidden;
+    ">
+        <div style="
+            position: absolute;
+            top: -60px;
+            right: -60px;
+            width: 320px;
+            height: 320px;
+            background: radial-gradient(circle, rgba(37, 180, 255, 0.35) 0%, transparent 70%);
+            border-radius: 50%;
+        "></div>
+        <div style="position: relative; z-index: 1;">
+            <p style="
+                color: #25B4FF;
+                font-size: 0.875rem;
+                font-weight: 600;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+                margin-bottom: 12px;
+                font-family: 'DM Sans', sans-serif;
+            ">DATABRICKS FOR SUPPLY CHAIN</p>
+            <p style="
+                color: #FFFFFF !important;
+                font-size: 2.6rem;
+                font-weight: 700;
+                line-height: 1.15;
+                margin: 0 0 16px 0;
+                font-family: 'DM Sans', sans-serif;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.25);
+            ">Demand Planning, Without the Blind Spots</p>
+            <p style="
+                color: rgba(255,255,255,0.85);
+                font-size: 1.2rem;
+                font-weight: 400;
+                margin: 0;
+                max-width: 640px;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                For supply chain and planning leaders at regional, freight-sensitive manufacturers.<br/>
+                Unify ERP/WMS/TMS and production signals, scale forecasting to thousands of SKUs,
+                and turn forecasts into better service, cost, and sustainability outcomes.
+            </p>
+        </div>
+    </div>
+    """,
         unsafe_allow_html=True,
     )
 
-    # --- Value cards ---
-    st.markdown('<div class="section-title">Why this demo</div>', unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
+    # Problem Quote Section
+    st.markdown(
+        """
+    <div style="
+        background: #25B4FF;
+        border-radius: 12px;
+        padding: 28px 36px;
+        margin-bottom: 32px;
+        text-align: center;
+    ">
+        <p style="
+            color: white;
+            font-size: 1.4rem;
+            font-weight: 500;
+            font-style: italic;
+            margin: 0 0 10px 0;
+            font-family: 'DM Sans', sans-serif;
+            line-height: 1.4;
+        ">
+            "Our planners don’t lack effort — they lack a unified, trustworthy view of demand, inventory, and freight."
+        </p>
+        <p style="
+            color: rgba(255,255,255,0.9);
+            font-size: 1rem;
+            margin: 0;
+            font-family: 'DM Sans', sans-serif;
+        ">
+            — Common sentiment from supply chain leaders in volatile, project-driven businesses
+        </p>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
 
-    with c1:
-        st.markdown(
-            """
-<div class="value-card">
-  <div class="value-card-title">Problem</div>
-  <div class="value-card-body">
-    Volatile, project-driven demand + regional plants + high freight sensitivity makes planning and service levels hard to balance.
-  </div>
-</div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with c2:
-        st.markdown(
-            """
-<div class="value-card">
-  <div class="value-card-title">Data</div>
-  <div class="value-card-body">
-    ERP orders, inventory, TMS shipments, telematics-like signals, production output, and external drivers—unified in Delta.
-  </div>
-</div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with c3:
-        st.markdown(
-            """
-<div class="value-card">
-  <div class="value-card-title">KPIs</div>
-  <div class="value-card-body">
-    Forecast accuracy (MAPE), OTIF, days of supply, inventory turns, freight $/ton, premium freight %, CO₂/ton, and energy intensity.
-  </div>
-</div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with c4:
-        st.markdown(
-            """
-<div class="value-card">
-  <div class="value-card-title">Impact</div>
-  <div class="value-card-body">
-    A small team standardizes pipelines + forecasting patterns to scale toward 25k SKUs, improving accuracy, reducing buffers, and cutting expedite.
-  </div>
-</div>
-            """,
-            unsafe_allow_html=True,
-        )
+    # Problem Section
+    st.markdown(
+        """
+    <h2 style="
+        color: #10212B;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0 0 18px 0;
+        font-family: 'DM Sans', sans-serif;
+    ">📊 The Problem: Planning in the Dark is Expensive</h2>
+    """,
+        unsafe_allow_html=True,
+    )
 
-    # --- How it works ---
-    st.markdown('<div class="section-title">How it works</div>', unsafe_allow_html=True)
-    h1, h2, h3 = st.columns(3)
-    with h1:
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
         st.markdown(
             """
-<div class="how-step">
-  <div class="how-step-title">1) Ingest & unify</div>
-  <div class="how-step-body">
-    Land ERP/WMS/TMS/production/external signals as Delta tables and publish curated gold views for planners and leadership.
-  </div>
-</div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with h2:
-        st.markdown(
-            """
-<div class="how-step">
-  <div class="how-step-title">2) ML / Genie / AI</div>
-  <div class="how-step-body">
-    Forecast demand (hierarchical → part-level at scale), track MAPE/bias, and enable Q&A-style analysis via Genie (optional).
-  </div>
-</div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with h3:
-        st.markdown(
-            """
-<div class="how-step">
-  <div class="how-step-title">3) Decision & action</div>
-  <div class="how-step-body">
-    Prioritize hotspots, tune buffers, rebalance inventory, and reduce premium freight while maintaining OTIF and sustainability goals.
-  </div>
-</div>
-            """,
+        <div style="
+            background: white;
+            border: 1px solid #e0e4ea;
+            border-radius: 12px;
+            padding: 22px;
+            text-align: center;
+            height: 100%;
+        ">
+            <p style="
+                color: #25B4FF;
+                font-size: 2.3rem;
+                font-weight: 700;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+            ">20–50%</p>
+            <p style="
+                color: #4a4f57;
+                font-size: 0.9rem;
+                margin: 8px 0 0 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                Typical forecast error at SKU/location level — driving both<br/>stockouts and excess inventory.
+            </p>
+        </div>
+        """,
             unsafe_allow_html=True,
         )
 
-    # --- Setup/status ---
-    st.markdown('<div class="section-title">Connection status</div>', unsafe_allow_html=True)
-    s1, s2, s3 = st.columns([1, 1, 2])
-    with s1:
-        st.markdown("**Data mode**")
-        st.write("Mock" if use_mock else "Databricks SQL (fallback)")
-    with s2:
-        st.markdown("**Target schema**")
-        st.code(f"{cfg.databricks_catalog}.{cfg.databricks_schema}", language="text")
-    with s3:
-        st.markdown("**Next steps**")
-        st.write(
-            "Run `notebooks/01_uc_setup` → `02_generate_bronze`, then run the DLT pipeline, then "
-            "`03_forecast_weekly_mlflow` → `04_post_forecast_kpis` → `05_ml_late_risk`. "
-            "After that, toggle off Mock mode."
-        )
-
-    if not cfg.databricks_host or not cfg.databricks_http_path:
-        st.info("Real data mode needs `DATABRICKS_HOST` and `DATABRICKS_HTTP_PATH`. Mock mode always works.")
-
-    with st.expander("For technical folks: what’s powering this app (real backend)"):
+    with col2:
         st.markdown(
             """
-**Lakeflow SDP/DLT (Bronze→Silver→Gold)**
-- Pipeline: `pipelines/dlt_supply_chain_medallion.py`
-- Gold contract: `control_tower_weekly`, `weekly_demand_actual`, `order_late_risk_scored`, KPI tables
-
-**MLflow (real ML in the loop)**
-- Train/register: `notebooks/05_ml_late_risk.py`
-- Output: `order_late_risk_scored` (used directly in Dashboard + Scenarios)
-
-**Genie (optional, same Gold data)**
-- Configure: `GENIE_SPACE_ID`
-
-**Asset Bundles (deployable by default)**
-- Bundle entrypoint: `databricks.yml`
-            """
+        <div style="
+            background: white;
+            border: 1px solid #e0e4ea;
+            border-radius: 12px;
+            padding: 22px;
+            text-align: center;
+            height: 100%;
+        ">
+            <p style="
+                color: #25B4FF;
+                font-size: 2.3rem;
+                font-weight: 700;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+            ">15–25%</p>
+            <p style="
+                color: #4a4f57;
+                font-size: 0.9rem;
+                margin: 8px 0 0 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                Of inventory value tied up in<br/>slow-moving or excess stock in many supply chains.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
         )
 
+    with col3:
+        st.markdown(
+            """
+        <div style="
+            background: white;
+            border: 1px solid #e0e4ea;
+            border-radius: 12px;
+            padding: 22px;
+            text-align: center;
+            height: 100%;
+        ">
+            <p style="
+                color: #25B4FF;
+                font-size: 2.3rem;
+                font-weight: 700;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+            ">2–5×</p>
+            <p style="
+                color: #4a4f57;
+                font-size: 0.9rem;
+                margin: 8px 0 0 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                Premium freight multiples compared to planned transport,<br/>
+                when demand surprises hit and buffers are wrong.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+
+    # Opportunity Gap Section
+    st.markdown(
+        """
+    <h2 style="
+        color: #10212B;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0 0 20px 0;
+        font-family: 'DM Sans', sans-serif;
+    ">🎯 The Opportunity Gap: High Stakes, Fragmented Signals</h2>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown(
+            """
+        <div style="
+            background: #10212B;
+            border-radius: 12px;
+            padding: 22px;
+            text-align: center;
+        ">
+            <p style="
+                color: #25B4FF;
+                font-size: 2.3rem;
+                font-weight: 700;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+            ">77%</p>
+            <p style="
+                color: white;
+                font-size: 0.9rem;
+                margin: 8px 0 0 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                Of companies are investing in better<br/>supply chain visibility — but struggle to connect it to decisions.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    with col2:
+        st.markdown(
+            """
+        <div style="
+            background: #10212B;
+            border-radius: 12px;
+            padding: 22px;
+            text-align: center;
+        ">
+            <p style="
+                color: #25B4FF;
+                font-size: 2.3rem;
+                font-weight: 700;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+            ">20–50%</p>
+            <p style="
+                color: white;
+                font-size: 0.9rem;
+                margin: 8px 0 0 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                Potential reduction in inventory cost when<br/>
+                predictive analytics and better forecasts are applied at scale.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    with col3:
+        st.markdown(
+            """
+        <div style="
+            background: #10212B;
+            border-radius: 12px;
+            padding: 22px;
+            text-align: center;
+        ">
+            <p style="
+                color: #25B4FF;
+                font-size: 2.3rem;
+                font-weight: 700;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+            ">50%</p>
+            <p style="
+                color: white;
+                font-size: 0.9rem;
+                margin: 8px 0 0 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                Forecast error reduction reported when<br/>
+                AI and real-time data are used in planning.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(
+        """
+    <div style="
+        background: #10212B;
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin: 24px 0 32px 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    ">
+        <span style="font-size: 1.5rem;">💡</span>
+        <div>
+            <p style="
+                color: white;
+                font-size: 1.05rem;
+                font-weight: 600;
+                margin: 0 0 4px 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                This is not a forecasting-effort problem — it’s a data and scale problem.
+            </p>
+            <p style="
+                color: rgba(255,255,255,0.75);
+                font-size: 0.95rem;
+                font-weight: 400;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                Planners are working hard, but ERP, WMS, TMS, telematics, and external signals live in silos,
+                making it impossible to trust the numbers or scale to 25k+ SKUs.
+            </p>
+        </div>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    # Shift Section
+    st.markdown(
+        """
+    <h2 style="
+        color: #10212B;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0 0 18px 0;
+        font-family: 'DM Sans', sans-serif;
+    ">⚡ The Shift: From Reactive Firefighting to Proactive Planning</h2>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(
+            """
+        <div style="
+            background: white;
+            border: 1px solid #e0e4ea;
+            border-radius: 12px;
+            padding: 24px;
+        ">
+            <p style="
+                color: #c0392b;
+                font-size: 0.875rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin: 0 0 10px 0;
+                font-family: 'DM Sans', sans-serif;
+            ">❌ Today’s Reality</p>
+            <p style="
+                color: #4a4f57;
+                font-size: 0.95rem;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+                line-height: 1.6;
+            ">
+                Forecasts live in spreadsheets, signals are fragmented, and planners
+                <strong>debate whose number is right</strong> while service, freight, and inventory costs drift upward.
+                Premium freight becomes the safety net.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    with col2:
+        st.markdown(
+            """
+        <div style="
+            background: white;
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            padding: 24px;
+        ">
+            <p style="
+                color: #10b981;
+                font-size: 0.875rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin: 0 0 10px 0;
+                font-family: 'DM Sans', sans-serif;
+            ">✓ With Databricks Lakehouse</p>
+            <p style="
+                color: #4a4f57;
+                font-size: 0.95rem;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+                line-height: 1.6;
+            ">
+                Move to a <strong>single, trusted planning backbone</strong> —
+                unifying orders, inventory, shipments, and external drivers,
+                and using AI to focus planners on the SKUs, regions, and weeks that matter most.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
+
+    # Impact Metrics Short List
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown(
+            """
+        <div style="
+            border-left: 3px solid #25B4FF;
+            padding-left: 14px;
+        ">
+            <p style="
+                color: #10212B;
+                font-size: 1rem;
+                font-weight: 600;
+                margin: 0 0 4px 0;
+                font-family: 'DM Sans', sans-serif;
+            ">📦 Service & Reliability</p>
+            <p style="
+                color: #6b7078;
+                font-size: 0.88rem;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                Higher OTIF and fewer surprises in project-driven lanes.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    with col2:
+        st.markdown(
+            """
+        <div style="
+            border-left: 3px solid #25B4FF;
+            padding-left: 14px;
+        ">
+            <p style="
+                color: #10212B;
+                font-size: 1rem;
+                font-weight: 600;
+                margin: 0 0 4px 0;
+                font-family: 'DM Sans', sans-serif;
+            ">💰 Cost & Working Capital</p>
+            <p style="
+                color: #6b7078;
+                font-size: 0.88rem;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                Leaner buffers, lower premium freight, better inventory turns.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    with col3:
+        st.markdown(
+            """
+        <div style="
+            border-left: 3px solid #25B4FF;
+            padding-left: 14px;
+        ">
+            <p style="
+                color: #10212B;
+                font-size: 1rem;
+                font-weight: 600;
+                margin: 0 0 4px 0;
+                font-family: 'DM Sans', sans-serif;
+            ">🌍 Sustainability & Resilience</p>
+            <p style="
+                color: #6b7078;
+                font-size: 0.88rem;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+            ">
+                Less expedite, better load utilization, and lower CO₂ per ton shipped.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
+
+    # How Databricks Does It
+    st.markdown(
+        """
+    <h2 style="
+        color: #10212B;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0 0 20px 0;
+        font-family: 'DM Sans', sans-serif;
+    ">🚀 How: Supply Chain Planning on Databricks</h2>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(
+            """
+        <div style="
+            background: linear-gradient(135deg, #10212B 0%, #051017 100%);
+            border-radius: 12px;
+            padding: 22px;
+            margin-bottom: 14px;
+        ">
+            <p style="
+                color: #25B4FF;
+                font-size: 1.1rem;
+                font-weight: 600;
+                margin: 0 0 6px 0;
+                font-family: 'DM Sans', sans-serif;
+            ">🗺️ Unified Supply Chain View</p>
+            <p style="
+                color: rgba(255,255,255,0.85);
+                font-size: 0.9rem;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+                line-height: 1.5;
+            ">
+                Bring ERP orders, inventory, TMS shipments, telematics-like signals,
+                production output, and external demand drivers into one governed lakehouse —
+                the foundation for integrated business planning.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+        <div style="
+            background: linear-gradient(135deg, #10212B 0%, #051017 100%);
+            border-radius: 12px;
+            padding: 22px;
+        ">
+            <p style="
+                color: #25B4FF;
+                font-size: 1.1rem;
+                font-weight: 600;
+                margin: 0 0 6px 0;
+                font-family: 'DM Sans', sans-serif;
+            ">📊 Integrated KPIs, One Language</p>
+            <p style="
+                color: rgba(255,255,255,0.85);
+                font-size: 0.9rem;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+                line-height: 1.5;
+            ">
+                Track forecast accuracy (MAPE), OTIF, days of supply, inventory turns,
+                freight $/ton, premium freight %, and CO₂/ton shipped — all computed
+                from the same source of truth that finance and operations can agree on.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    with col2:
+        st.markdown(
+            """
+        <div style="
+            background: linear-gradient(135deg, #10212B 0%, #051017 100%);
+            border-radius: 12px;
+            padding: 22px;
+            margin-bottom: 14px;
+        ">
+            <p style="
+                color: #25B4FF;
+                font-size: 1.1rem;
+                font-weight: 600;
+                margin: 0 0 6px 0;
+                font-family: 'DM Sans', sans-serif;
+            ">🤖 AI-Enhanced Forecasting at Scale</p>
+            <p style="
+                color: rgba(255,255,255,0.85);
+                font-size: 0.9rem;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+                line-height: 1.5;
+            ">
+                Use the lakehouse to train and govern hierarchical forecasts
+                across thousands of SKUs and locations, then surface only the
+                true hotspots where planners’ judgment adds the most value.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+        <div style="
+            background: linear-gradient(135deg, #10212B 0%, #051017 100%);
+            border-radius: 12px;
+            padding: 22px;
+        ">
+            <p style="
+                color: #25B4FF;
+                font-size: 1.1rem;
+                font-weight: 600;
+                margin: 0 0 6px 0;
+                font-family: 'DM Sans', sans-serif;
+            ">📱 Decision Apps for Planners</p>
+            <p style="
+                color: rgba(255,255,255,0.85);
+                font-size: 0.9rem;
+                margin: 0;
+                font-family: 'DM Sans', sans-serif;
+                line-height: 1.5;
+            ">
+                Deliver intuitive apps where leaders and planners can explore scenarios —
+                adjust buffers, rebalance inventory, and see the impact on OTIF,
+                cost, and emissions in real time.
+            </p>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+
+    # CTA Section
+    st.markdown(
+        """
+    <div style="
+        background: linear-gradient(135deg, #25B4FF 0%, #1D8CCE 100%);
+        border-radius: 12px;
+        padding: 30px 36px;
+        text-align: center;
+    ">
+        <p style="
+            color: white;
+            font-size: 1.45rem;
+            font-weight: 600;
+            margin: 0 0 6px 0;
+            font-family: 'DM Sans', sans-serif;
+        ">
+            Ready to see the plan in action?
+        </p>
+        <p style="
+            color: rgba(255,255,255,0.9);
+            font-size: 1rem;
+            margin: 0;
+            font-family: 'DM Sans', sans-serif;
+        ">
+            Use the tabs to explore the Control Tower dashboard, scenario-based value stories,
+            and AI-assisted Q&amp;A — all powered by the Databricks Lakehouse.
+        </p>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
