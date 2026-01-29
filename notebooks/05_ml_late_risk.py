@@ -30,6 +30,7 @@ import mlflow
 import mlflow.spark
 
 from pyspark.sql import functions as F
+from pyspark.ml.functions import vector_to_array
 
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import LogisticRegression
@@ -278,7 +279,9 @@ scored = model.transform(to_score).select(
     "sku_family",
     "units_ordered",
     "days_to_request",
-    F.col("probability").getItem(1).alias("late_risk_prob"),
+    # Spark ML `probability` is a VectorUDT in many runtimes (incl. Spark Connect).
+    # Use vector_to_array to reliably extract class-1 probability.
+    vector_to_array(F.col("probability")).getItem(1).alias("late_risk_prob"),
     F.col("prediction").cast("int").alias("late_risk_flag"),
     F.col("is_late").cast("int").alias("actual_late"),
 )
