@@ -44,7 +44,7 @@ Show a **polished Streamlit control tower** for business users, backed by a **re
 ### 2) Real ML in the loop (late-delivery risk)
 - Notebook: `notebooks/05_ml_late_risk.py`
 - Registers UC model: `<catalog>.<schema>.order_late_risk_model`
-- Scores into Gold: `order_late_risk_scored`
+- Scores into Gold: `order_late_risk_scored_ml`
 - Optional: DLT scoring with `demo.late_risk_model_name`
 
 ### 3) Genie on the same data

@@ -39,7 +39,7 @@ SELECT
   customer_region,
   sku_family,
   avg(late_risk_prob) AS avg_late_risk_prob
-FROM {catalog}.{schema}.order_late_risk_scored
+FROM {catalog}.{schema}.order_late_risk_scored_ml
 GROUP BY 1,2,3
 ORDER BY avg_late_risk_prob DESC
 LIMIT 50

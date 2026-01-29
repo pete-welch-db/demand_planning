@@ -8,7 +8,7 @@ This repo is bundled by default using **Databricks Asset Bundles**.
 - **DLT / Lakeflow SDP pipeline**: `resources/pipelines/medallion.yml`
   - Bronze → Silver → Gold tables in `${var.catalog}.${var.schema}`
 - **Job**: `resources/jobs/train_and_register_late_risk.yml`
-  - Trains + registers the late-delivery risk model (MLflow) and writes `order_late_risk_scored`
+  - Trains + registers the late-delivery risk model (MLflow) and writes `order_late_risk_scored_ml`
 - **SQL assets**: `sql/kpi_starter_queries.sql`
   - Starter queries for DBSQL and Genie instructions
 

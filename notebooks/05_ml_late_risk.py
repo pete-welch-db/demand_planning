@@ -3,7 +3,7 @@
 # MAGIC ## 5) ML in the loop — Late Delivery Risk
 # MAGIC
 # MAGIC Trains a simple late-delivery risk model from `silver_erp_orders` (DLT output),
-# MAGIC registers it in MLflow, and writes `order_late_risk_scored`.
+# MAGIC registers it in MLflow, and writes `order_late_risk_scored_ml` (to avoid colliding with the DLT-owned `order_late_risk_scored` table).
 
 # COMMAND ----------
 
@@ -285,8 +285,17 @@ scored_pd = to_score_pd[[
 
 scored = spark.createDataFrame(scored_pd)
 
-# Drop existing table if it exists (may be a materialized view)
-spark.sql(f"DROP TABLE IF EXISTS {cfg.table('order_late_risk_scored')}")
+SCORED_TABLE_NAME = "order_late_risk_scored_ml"
 
-(scored.write.format("delta").mode("overwrite").saveAsTable(cfg.table("order_late_risk_scored")))
-display(spark.table(cfg.table("order_late_risk_scored")).orderBy(F.desc("late_risk_prob")).limit(20))
+# Drop existing object if it exists (table/view); avoid collisions with the DLT-owned `order_late_risk_scored`.
+try:
+    spark.sql(f"DROP VIEW IF EXISTS {cfg.table(SCORED_TABLE_NAME)}")
+except Exception:
+    pass
+try:
+    spark.sql(f"DROP TABLE IF EXISTS {cfg.table(SCORED_TABLE_NAME)}")
+except Exception:
+    pass
+
+(scored.write.format("delta").mode("overwrite").saveAsTable(cfg.table(SCORED_TABLE_NAME)))
+display(spark.table(cfg.table(SCORED_TABLE_NAME)).orderBy(F.desc("late_risk_prob")).limit(20))

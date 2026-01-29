@@ -22,7 +22,7 @@ def render(cfg: AppConfig, use_mock: bool) -> None:
         "In the last 13 weeks, which plant→DC lanes have the highest freight_cost_per_ton AND below-average OTIF? Return top 10 lanes.",
         "Which sku_family × region has the worst forecast accuracy (MAPE) over the last 8–12 weeks? What changed vs the prior period?",
         "Where is premium_freight_pct highest, and is it correlated with low OTIF or higher late_risk_prob?",
-        "Using order_late_risk_scored, which region × sku_family has the highest average late_risk_prob in the last 4 weeks?",
+        "Using order_late_risk_scored_ml, which region × sku_family has the highest average late_risk_prob in the last 4 weeks?",
         "If we protected the top 5% highest-risk orders (late_risk_prob), how many OTIF misses could we prevent (proxy using actual_late)?",
     ]
 
@@ -57,7 +57,7 @@ def render(cfg: AppConfig, use_mock: bool) -> None:
     st.markdown(
         """
 - **Be explicit about time window**: “last 13 weeks”, “last 90 days”, “week starting Monday”.
-- **Name the table(s)**: `control_tower_weekly`, `weekly_demand_actual`, `order_late_risk_scored`.
+- **Name the table(s)**: `control_tower_weekly`, `weekly_demand_actual`, `order_late_risk_scored_ml`.
 - **Specify grain + grouping**: “by region”, “by sku_family × region”, “by plant→DC lane”.
 - **Ask for the output shape**: “top 10”, “include trend line and latest value”, “return a table + a short summary”.
 - **Define the KPI if ambiguous**: “OTIF = on-time AND in-full”.

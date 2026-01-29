@@ -19,11 +19,12 @@ Run order:
    - `bronze_inventory_positions_raw`
    - `bronze_tms_shipments_raw`
    - `bronze_production_output_raw`
-   - `bronze_external_signals_raw` (optional)
+   - `bronze_external_signals_raw`
 3. Run the **DLT/SDP pipeline** `pipelines/dlt_supply_chain_medallion.py` – produces **Silver/Gold**
 4. `notebooks/03_forecast_weekly_mlflow` – weekly forecasting by `(sku_family, region)` (writes `demand_forecast*`)
 5. `notebooks/04_post_forecast_kpis.py` – refreshes post-forecast views (e.g., `kpi_mape_weekly`)
-6. `notebooks/05_ml_late_risk` – MLflow training + scoring into Gold (`order_late_risk_scored`)
+6. `notebooks/05_ml_late_risk` – MLflow training + scoring into Gold (`order_late_risk_scored_ml`)
+6.5. (Optional) `notebooks/06_uc_metric_views.py` – creates Unity Catalog **metric views** over the Gold tables for consistent KPI definitions in Dashboards/Genie
 7. Optional notebook “dashboard” views:
    - `notebooks/90_dashboard_demand_planner`
    - `notebooks/91_dashboard_logistics_service`
@@ -96,7 +97,7 @@ This demo includes a minimal “ML that changes a decision” workflow:
 - **Train + register model (MLflow)**: run `notebooks/05_ml_late_risk`
   - Trains a logistic regression model to predict late delivery at order time
   - Logs metrics and registers a UC model (default name: `<catalog>.<schema>.order_late_risk_model`)
-  - Writes a **Gold** table: `order_late_risk_scored`
+  - Writes a **Gold** table: `order_late_risk_scored_ml` (to avoid colliding with the DLT-owned `order_late_risk_scored`)
 
 ### Optional: score inside the DLT pipeline
 
@@ -107,7 +108,7 @@ The DLT pipeline includes a Gold table `order_late_risk_scored` that:
 To enable true ML scoring in DLT, set pipeline configuration:
 - `demo.late_risk_model_name` = `<catalog>.<schema>.order_late_risk_model`
 
-The Streamlit app uses this Gold table to show **late-risk hotspots** and to drive scenario sliders.
+The Streamlit app uses `order_late_risk_scored_ml` by default (created by Notebook 5) to show **late-risk hotspots** and drive scenarios.
 
 ## Genie on the same Gold tables (AI/BI Genie)
 
@@ -125,7 +126,7 @@ High-level steps (see the official “Set up and manage an AI/BI Genie space” 
   - `kpi_freight_weekly`
   - `kpi_premium_freight_weekly`
   - `kpi_energy_intensity_weekly`
-  - `order_late_risk_scored`
+  - `order_late_risk_scored_ml` (Notebook 5 output) and/or `order_late_risk_scored` (DLT output)
 - Copy the **Space ID** and set `GENIE_SPACE_ID`
 
 ### Wire Genie into the app

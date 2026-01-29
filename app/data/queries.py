@@ -73,7 +73,7 @@ def q_order_late_risk(cfg: AppConfig) -> str:
       late_risk_prob,
       late_risk_flag,
       actual_late
-    FROM {cfg.fq_schema}.order_late_risk_scored
+    FROM {cfg.fq_schema}.order_late_risk_scored_ml
     ORDER BY order_date DESC
     LIMIT 5000
     """

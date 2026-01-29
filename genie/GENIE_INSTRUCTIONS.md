@@ -8,8 +8,19 @@ Target Unity Catalog schema (default):
 
 ---
 
-## IMPORTANT: Use Pre-Aggregated Tables (Gold) First
-For summaries, totals, trends, and KPI rollups, **ALWAYS prefer these pre-aggregated Gold tables/views**:
+## IMPORTANT: Use Metric Views for KPIs First
+For KPI summaries, totals, and trends, **ALWAYS start with these Unity Catalog metric views** (standardized definitions, reusable across Dashboards + Genie):
+
+- `mv_control_tower_kpis` — service + cost + sustainability measures on `control_tower_weekly`
+- `mv_forecast_accuracy` — forecast accuracy measures on `kpi_mape_weekly`
+- `mv_late_delivery_risk` — late-risk measures on `order_late_risk_scored_ml`
+
+If a question needs row-level detail (for example “which specific orders?”), then use the underlying Gold/Silver tables.
+
+---
+
+## Gold Tables / Views (Pre-Aggregated) — use when you need raw columns
+For summaries, totals, trends, and KPI rollups, **prefer these pre-aggregated Gold tables/views** when you need to reference columns directly:
 
 - `control_tower_weekly` — executive control tower weekly rollup (service, demand, freight, sustainability, risk)
 - `weekly_demand_actual` — weekly demand actuals (and shipped) by `sku_family` x `region`
@@ -17,7 +28,7 @@ For summaries, totals, trends, and KPI rollups, **ALWAYS prefer these pre-aggreg
 - `kpi_freight_weekly` — freight and CO₂ KPIs by week and lane dimensions
 - `kpi_premium_freight_weekly` — premium freight % by week and lane dimensions
 - `kpi_energy_intensity_weekly` — energy intensity by week/plant/sku_family
-- `order_late_risk_scored` — scored late-delivery risk (used directly for risk hotspot analysis)
+- `order_late_risk_scored_ml` — scored late-delivery risk (Notebook 5 output; used directly for order-level tables)
 - `kpi_mape_weekly` — forecast accuracy by week/sku_family/region (created after forecasting)
 - `demand_vs_forecast_weekly` — convenience view joining actual + forecast (created after forecasting)
 
@@ -70,7 +81,7 @@ FORMAT_NUMBER(units, '#,##0') AS `Units`
 | `kpi_freight_weekly` | Freight cost + CO₂ by lane/week |
 | `kpi_premium_freight_weekly` | Premium freight % by lane/week |
 | `kpi_energy_intensity_weekly` | Energy intensity by plant/family/week |
-| `order_late_risk_scored` | Risk hotspots + prioritization |
+| `order_late_risk_scored_ml` | Risk hotspots + prioritization |
 | `silver_erp_orders` | Drill-down: which orders drove a KPI change |
 
 ---
@@ -94,14 +105,14 @@ When asked a business question:
 
 ## Examples of “Correct” Table Choice
 ### “How is OTIF trending in the Midwest?”
-Use `kpi_otif_weekly` (do not scan `silver_erp_orders` unless asked for order details).
+Use `mv_control_tower_kpis` and `MEASURE('OTIF')` grouped by `week` and `region` (do not scan `silver_erp_orders` unless asked for order details).
 
 ### “Where are we paying premium freight and why?”
 Use `kpi_premium_freight_weekly` + `kpi_freight_weekly` for rollups; drill to `silver_tms_shipments` only if needed.
 
 ### “Which family/region has the worst forecast accuracy?”
-Use `kpi_mape_weekly` (or `demand_vs_forecast_weekly`).
+Use `mv_forecast_accuracy` and `MEASURE('MAPE')` (or `kpi_mape_weekly` / `demand_vs_forecast_weekly` if you need raw columns).
 
 ### “Which orders are most at risk of being late this week?”
-Use `order_late_risk_scored` and rank by `late_risk_prob`.
+Use `mv_late_delivery_risk` for hotspot rollups; use `order_late_risk_scored_ml` for the order-level table and rank by `late_risk_prob`.
 

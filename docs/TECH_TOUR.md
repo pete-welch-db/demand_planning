@@ -29,7 +29,7 @@
   - `kpi_freight_weekly`
   - `kpi_premium_freight_weekly`
   - `kpi_energy_intensity_weekly`
-  - `order_late_risk_scored`
+  - `order_late_risk_scored_ml`
 
 ### 2) ML in the loop (late-risk)
 - Training notebook: `notebooks/05_ml_late_risk.py`
