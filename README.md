@@ -22,7 +22,7 @@ Run order:
    - `bronze_external_signals_raw` (optional)
 3. Run the **DLT/SDP pipeline** `pipelines/dlt_supply_chain_medallion.py` – produces **Silver/Gold**
 4. `notebooks/03_forecast_weekly_mlflow` – weekly forecasting by `(sku_family, region)` (writes `demand_forecast*`)
-5. `notebooks/04_post_forecast_kpis` – refreshes post-forecast views (e.g., `kpi_mape_weekly`)
+5. `notebooks/04_post_forecast_kpis.py` – refreshes post-forecast views (e.g., `kpi_mape_weekly`)
 6. `notebooks/05_ml_late_risk` – MLflow training + scoring into Gold (`order_late_risk_scored`)
 7. Optional notebook “dashboard” views:
    - `notebooks/90_dashboard_demand_planner`
@@ -181,7 +181,7 @@ export DATABRICKS_CONFIG_PROFILE=azure
 - `notebooks/02_generate_bronze`
 - Run the DLT/SDP pipeline (`pipelines/dlt_supply_chain_medallion.py`)
 - `notebooks/03_forecast_weekly_mlflow`
-- `notebooks/04_post_forecast_kpis`
+- `notebooks/04_post_forecast_kpis.py`
 - `notebooks/05_ml_late_risk`
 
 This is automated in the `demand_planning_end_to_end` workflow job.

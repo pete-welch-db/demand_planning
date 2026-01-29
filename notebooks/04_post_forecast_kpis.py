@@ -38,7 +38,8 @@ def _safe_drop_any(fq_name: str) -> None:
 # `demand_forecast` is written by `03_forecast_weekly_mlflow` as a Delta table.
 # Create a placeholder if it doesn't exist yet (so this notebook can run safely).
 if not spark.catalog.tableExists(cfg.table("demand_forecast").replace("`", "")):
-    spark.sql(f"""
+    spark.sql(
+        f"""
     CREATE TABLE IF NOT EXISTS {cfg.table("demand_forecast")} (
       week DATE,
       sku_family STRING,
@@ -47,11 +48,13 @@ if not spark.catalog.tableExists(cfg.table("demand_forecast").replace("`", "")):
       lower_ci DOUBLE,
       upper_ci DOUBLE
     ) USING DELTA
-    """)
+    """
+    )
 
 _safe_drop_any(cfg.table("kpi_mape_weekly"))
 
-spark.sql(f"""
+spark.sql(
+    f"""
 CREATE OR REPLACE VIEW {cfg.table("kpi_mape_weekly")} AS
 WITH joined AS (
   SELECT
@@ -71,7 +74,8 @@ SELECT
   avg({mape_expr("actual_units", "forecast_units")}) AS mape
 FROM joined
 GROUP BY 1,2,3
-""")
+"""
+)
 
 display(spark.table(cfg.table("kpi_mape_weekly")).orderBy(F.desc("week")).limit(20))
 
@@ -82,7 +86,8 @@ display(spark.table(cfg.table("kpi_mape_weekly")).orderBy(F.desc("week")).limit(
 # COMMAND ----------
 if spark.catalog.tableExists(cfg.table("demand_forecast_future").replace("`", "")):
     _safe_drop_any(cfg.table("demand_vs_forecast_weekly"))
-    spark.sql(f"""
+    spark.sql(
+        f"""
     CREATE OR REPLACE VIEW {cfg.table("demand_vs_forecast_weekly")} AS
     WITH a AS (
       SELECT week, sku_family, region, actual_units
@@ -106,7 +111,8 @@ if spark.catalog.tableExists(cfg.table("demand_forecast_future").replace("`", ""
     FROM a
     LEFT JOIN f USING (week, sku_family, region)
     LEFT JOIN ff USING (week, sku_family, region)
-    """)
+    """
+    )
 
     display(spark.table(cfg.table("demand_vs_forecast_weekly")).orderBy(F.desc("week")).limit(20))
 

@@ -55,7 +55,7 @@ resources:
           depends_on:
             - task_key: forecasting_mlflow
           notebook_task:
-            notebook_path: ${workspace.file_path}/notebooks/04_post_forecast_kpis
+            notebook_path: ${workspace.file_path}/notebooks/04_post_forecast_kpis.py
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
@@ -132,7 +132,7 @@ resources:
           depends_on:
             - task_key: forecasting_mlflow
           notebook_task:
-            notebook_path: ${workspace.file_path}/notebooks/04_post_forecast_kpis
+            notebook_path: ${workspace.file_path}/notebooks/04_post_forecast_kpis.py
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
