@@ -52,23 +52,9 @@ resources:
             node_type_id: "Standard_DS3_v2"
             num_workers: 2
 
-        # Needed for dashboards: creates `kpi_mape_weekly` and `demand_vs_forecast_weekly`
-        - task_key: Post_Forecast_KPIs
-          depends_on:
-            - task_key: Weekly_Forecast_ML
-          notebook_task:
-            notebook_path: ${workspace.file_path}/notebooks/04_post_forecast_kpis.py
-            base_parameters:
-              catalog: "${var.catalog}"
-              schema: "${var.schema}"
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
-            num_workers: 1
-
         - task_key: ML_Late_Risk
           depends_on:
-            - task_key: Post_Forecast_KPIs
+            - task_key: Weekly_Forecast_ML
           notebook_task:
             notebook_path: ${workspace.file_path}/notebooks/05_ml_late_risk
             base_parameters:
@@ -82,9 +68,30 @@ resources:
             node_type_id: "Standard_DS3_v2"
             num_workers: 2
 
-        - task_key: Demand_Planner_Dashboard
+        - task_key: KPI_Metric_Refresh
           depends_on:
             - task_key: ML_Late_Risk
+          notebook_task:
+            notebook_path: ${workspace.file_path}/notebooks/06_kpi_metric_refresh.py
+            base_parameters:
+              catalog: "${var.catalog}"
+              schema: "${var.schema}"
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: "Standard_DS3_v2"
+            num_workers: 1
+
+        - task_key: Dashboard_Refresh
+          depends_on:
+            - task_key: KPI_Metric_Refresh
+          dashboard_task:
+            subscription: {}
+            warehouse_id: "${var.warehouse_id}"
+            dashboard_id: "${var.dashboard_id}"
+
+        - task_key: Demand_Planner_Dashboard
+          depends_on:
+            - task_key: KPI_Metric_Refresh
           notebook_task:
             notebook_path: ${workspace.file_path}/notebooks/90_dashboard_demand_planner
             base_parameters:
@@ -97,7 +104,7 @@ resources:
 
         - task_key: Logistics_Service_Dashboard
           depends_on:
-            - task_key: Demand_Planner_Dashboard
+            - task_key: KPI_Metric_Refresh
           notebook_task:
             notebook_path: ${workspace.file_path}/notebooks/91_dashboard_logistics_service
             base_parameters:
@@ -110,7 +117,7 @@ resources:
 
         - task_key: Sustainability_Dashboard
           depends_on:
-            - task_key: Logistics_Service_Dashboard
+            - task_key: KPI_Metric_Refresh
           notebook_task:
             notebook_path: ${workspace.file_path}/notebooks/92_dashboard_sustainability
             base_parameters:

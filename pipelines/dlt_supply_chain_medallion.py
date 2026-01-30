@@ -23,9 +23,6 @@ import dlt
 from pyspark.sql import functions as F
 
 # COMMAND ----------
-# Optional: ML scoring into Gold (late delivery risk)
-# If the model doesn't exist yet, we gracefully degrade by emitting a heuristic risk score.
-
 # COMMAND ----------
 def _conf_first(keys: list[str]) -> str:
     for k in keys:
@@ -280,100 +277,4 @@ def control_tower_weekly():
         )
     )
     return out
-
-
-@dlt.table(
-    name="order_late_risk_scored",
-    comment="Gold: late delivery risk scores for recent orders (MLflow model if available; otherwise heuristic fallback).",
-)
-def order_late_risk_scored():
-    """
-    This table is intentionally ML-in-loop: it changes decisions (expedite, capacity reservation, allocation).
-
-    Pipeline config (optional):
-    - demo.late_risk_model_name: UC model name, e.g. main.demand_planning_demo.order_late_risk_model
-    """
-    o = dlt.read("silver_erp_orders").where("order_status <> 'cancelled'").select(
-        "order_id",
-        "order_date",
-        "requested_delivery_date",
-        F.col("customer_region").alias("customer_region"),
-        "channel",
-        "dc_id",
-        "plant_id",
-        "sku_family",
-        "units_ordered",
-        "unit_price",
-        "is_on_time",
-    )
-
-    # Feature set (matches training notebook)
-    feat = (
-        o.withColumn("days_to_request", F.datediff("requested_delivery_date", "order_date").cast("double"))
-        .withColumn("dow", F.dayofweek("order_date").cast("double"))
-        .withColumn("woy", F.weekofyear("order_date").cast("double"))
-        .withColumn("month", F.month("order_date").cast("double"))
-        .withColumn("order_week", F.date_trunc("week", F.col("order_date")).cast("date"))
-        .withColumn("actual_late", (~F.col("is_on_time")).cast("int"))
-    )
-
-    # Join external signals (weekly, by region)
-    ext = dlt.read("silver_external_signals")
-    feat = (
-        feat.join(ext, (feat.order_week == ext.week) & (feat.customer_region == ext.region), "left")
-        .drop(ext.week)
-        .drop(ext.region)
-    )
-
-    model_name = spark.conf.get("demo.late_risk_model_name", "").strip()
-
-    # Try MLflow model; fallback to heuristic if unavailable
-    try:
-        if not model_name:
-            raise RuntimeError("No demo.late_risk_model_name configured.")
-
-        import mlflow.spark
-
-        # Load the registered Spark ML pipeline model and score (expects raw feature columns).
-        m = mlflow.spark.load_model(f"models:/{model_name}/latest")
-        pred = m.transform(feat)
-
-        scored = (
-            pred.withColumn("late_risk_prob", F.col("probability").getItem(1))
-            .withColumn("late_risk_flag", (F.col("late_risk_prob") >= F.lit(0.5)).cast("int"))
-        )
-    except Exception:
-        # Heuristic: higher risk with shorter lead time + high units + contractor/DOT + winter weeks
-        scored = (
-            feat.withColumn(
-                "late_risk_prob",
-                F.least(
-                    F.lit(0.99),
-                    F.greatest(
-                        F.lit(0.01),
-                        F.lit(0.12)
-                        + F.when(F.col("days_to_request") <= 5, F.lit(0.18)).otherwise(F.lit(0.0))
-                        + F.when(F.col("channel").isin(["contractor", "DOT"]), F.lit(0.08)).otherwise(F.lit(0.0))
-                        + F.when(F.col("units_ordered") >= 50, F.lit(0.10)).otherwise(F.lit(0.0))
-                        + F.when(F.col("woy").isin(list(range(1, 9)) + list(range(48, 53))), F.lit(0.06)).otherwise(F.lit(0.0))
-                    ),
-                ),
-            )
-            .withColumn("late_risk_flag", (F.col("late_risk_prob") >= F.lit(0.5)).cast("int"))
-        )
-
-    return scored.select(
-        "order_id",
-        "order_date",
-        "customer_region",
-        "channel",
-        "dc_id",
-        "plant_id",
-        "sku_family",
-        "units_ordered",
-        "days_to_request",
-        "late_risk_prob",
-        "late_risk_flag",
-        "actual_late",
-    )
 

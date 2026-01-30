@@ -7,8 +7,8 @@ This repo is bundled by default using **Databricks Asset Bundles**.
 - **Files**: the bundle syncs repo files into the bundle `workspace.root_path` (as supported by your Databricks CLI/bundle schema).
 - **DLT / Lakeflow SDP pipeline**: `resources/pipelines/medallion.yml`
   - Bronze → Silver → Gold tables in `${var.catalog}.${var.schema}`
-- **Job**: `resources/jobs/train_and_register_late_risk.yml`
-  - Trains + registers the late-delivery risk model (MLflow) and writes `order_late_risk_scored_ml`
+- **Job**: `resources/jobs/demand_planning_demo_job.yml`
+  - End-to-end workflow (UC → Bronze → DLT → Forecast → ML → KPI+Metric refresh → Dashboards)
 - **SQL assets**: `sql/kpi_starter_queries.sql`
   - Starter queries for DBSQL and Genie instructions
 
@@ -19,12 +19,14 @@ Key bundle variables (see `databricks.yml`):
 - `schema`
 - `demo_name`
 - `late_risk_model_name`
+- `warehouse_id` (for dashboard refresh)
+- `dashboard_id` (for dashboard refresh)
 
 ### Typical commands
 
 ```bash
 databricks bundle validate
 databricks bundle deploy -t dev
-databricks bundle run -t dev train_and_register_late_risk
+databricks bundle run -t dev Demand_Planning_Demo_Job
 ```
 

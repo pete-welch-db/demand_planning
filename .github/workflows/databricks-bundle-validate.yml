@@ -1,0 +1,37 @@
+name: Validate Databricks Bundle
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      # Only run when bundle-related files change
+      - 'databricks.yml'
+      - 'resources/**'
+      - 'pipelines/**'
+      - 'notebooks/**'
+      - '.github/workflows/databricks-bundle-*.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Validate bundle (azure target)
+        env:
+          # Validation needs auth to resolve workspace references
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          echo "Validating Databricks Asset Bundle..."
+          databricks bundle validate --target azure
+
+          echo ""
+          echo "✅ Bundle validation passed"

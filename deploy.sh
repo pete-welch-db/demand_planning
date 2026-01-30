@@ -43,7 +43,7 @@ echo "📦 Deploying bundle..."
 databricks bundle deploy --target "$TARGET" $PROFILE_FLAG
 
 echo ""
-echo "🔄 Running Demand Planning Demo Job (UC → Bronze → DLT → Forecast → KPIs → ML → Dashboards)..."
+echo "🔄 Running Demand Planning Demo Job (UC → Bronze → DLT → Forecast → ML → KPI+Metric refresh → Dashboards)..."
 databricks bundle run Demand_Planning_Demo_Job --target "$TARGET" $PROFILE_FLAG
 
 echo ""
@@ -53,7 +53,7 @@ echo "Pipeline stages completed:"
 echo "  1. ✅ Setup: UC catalog + schema ensured (best-effort)"
 echo "  2. ✅ DLT: Bronze/Silver/Gold tables materialized"
 echo "  3. ✅ Forecasting: demand_forecast tables written"
-echo "  4. ✅ KPIs: views refreshed (incl. MAPE)"
-echo "  5. ✅ ML: late-delivery risk model trained + registered + scored into Gold"
-echo "  6. ✅ Dashboards: notebook dashboards refreshed (optional views)"
+echo "  4. ✅ ML: late-delivery risk model trained + registered + scored into Gold"
+echo "  5. ✅ KPI+Metric refresh: post-forecast KPI views + UC metric views"
+echo "  6. ✅ Dashboards: notebook dashboards refreshed + AI/BI dashboard refresh task"
 

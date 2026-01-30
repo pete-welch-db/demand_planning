@@ -6,7 +6,7 @@
 # MAGIC - Bronze tables generated (`02_generate_bronze`)
 # MAGIC - DLT pipeline ran (Silver/Gold exist)
 # MAGIC - Forecasting ran (`03_forecast_weekly_mlflow`)
-# MAGIC - Post-forecast KPIs refreshed (`04_post_forecast_kpis.py`)
+# MAGIC - KPI + metric refresh ran (`06_kpi_metric_refresh.py`)
 # MAGIC
 # MAGIC Focus:
 # MAGIC - Weekly demand vs forecast by `sku_family` and `region`

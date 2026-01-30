@@ -45,7 +45,6 @@ Show a **polished Streamlit control tower** for business users, backed by a **re
 - Notebook: `notebooks/05_ml_late_risk.py`
 - Registers UC model: `<catalog>.<schema>.order_late_risk_model`
 - Scores into Gold: `order_late_risk_scored_ml`
-- Optional: DLT scoring with `demo.late_risk_model_name`
 
 ### 3) Genie on the same data
 - Genie space over Gold tables
@@ -54,6 +53,6 @@ Show a **polished Streamlit control tower** for business users, backed by a **re
 ### 4) Deployment = Asset Bundle
 - Entry: `databricks.yml`
 - Pipeline: `resources/pipelines/medallion.yml`
-- Job: `resources/jobs/train_and_register_late_risk.yml`
+- Job: `resources/jobs/demand_planning_demo_job.yml` (canonical end-to-end job)
 - SQL assets: `sql/kpi_starter_queries.sql`
 

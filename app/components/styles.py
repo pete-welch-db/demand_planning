@@ -18,28 +18,27 @@ def apply_theme() -> None:
 
     # Centralized theme tokens (config.py) -> CSS variables (STYLING.md)
     radius = int(THEME["radius_px"])
-    st.markdown(
-        f"""
+    css = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
 
 :root{
-  --lava-600:{THEME["accent_primary"]};
-  --lava-500:{THEME["accent_secondary"]};
-  --navy-900:{THEME["navy_900"]};
-  --navy-800:{THEME["navy_800"]};
+  --lava-600: __LAVA_600__;
+  --lava-500: __LAVA_500__;
+  --navy-900: __NAVY_900__;
+  --navy-800: __NAVY_800__;
 
-  --bg-primary:{THEME["bg_primary"]};   /* Oat Medium */
-  --bg-secondary:{THEME["bg_secondary"]}; /* Oat Light  */
-  --card-bg:{THEME["bg_card"]};
-  --card-border:{THEME["border_color"]};
+  --bg-primary: __BG_PRIMARY__;   /* Oat Medium */
+  --bg-secondary: __BG_SECONDARY__; /* Oat Light  */
+  --card-bg: __CARD_BG__;
+  --card-border: __CARD_BORDER__;
 
-  --text-primary:{THEME["text_primary"]};
-  --text-secondary:{THEME["text_secondary"]};
-  --grid:{THEME["grid"]};
-  --shadow:{THEME["shadow"]};
-  --radius:{radius}px;
-  --spacing:8px;
+  --text-primary: __TEXT_PRIMARY__;
+  --text-secondary: __TEXT_SECONDARY__;
+  --grid: __GRID__;
+  --shadow: __SHADOW__;
+  --radius: __RADIUS_PX__px;
+  --spacing: 8px;
 }
 
 /* Hide default Streamlit chrome */
@@ -61,6 +60,23 @@ html, body, [data-testid="stAppViewContainer"]{
 }
 [data-testid="stSidebar"] *{
   font-family: "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif !important;
+}
+
+/* Sidebar nav (Scrap Intelligence-style buttons) */
+[data-testid="stSidebar"] div[role="radiogroup"] > label{
+  background: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  margin: 0 0 10px 0 !important;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] > label:hover{
+  border-color: rgba(255, 54, 33, 0.40) !important;
+}
+/* Selected */
+[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked){
+  border-color: var(--lava-600) !important;
+  box-shadow: 0 1px 3px rgba(255,54,33,0.15) !important;
 }
 
 /* Tighter page padding */
@@ -211,8 +227,8 @@ html, body, [data-testid="stAppViewContainer"]{
   font-size: 14px;
   font-weight: 600;
 }
-.metric-delta.positive{{ color:{THEME["success"]}; }}
-.metric-delta.negative{{ color:{THEME["danger"]}; }}
+.metric-delta.positive{ color: __SUCCESS__; }
+.metric-delta.negative{ color: __DANGER__; }
 
 /* Buttons */
 div.stButton > button{
@@ -256,6 +272,15 @@ button[data-baseweb="tab"][aria-selected="true"]{
 
 /* Misc */
 .subtle{ color: var(--text-secondary); font-size: 14px; }
+
+/* Charts: render on card surface (improves contrast on Oat background) */
+div[data-testid="stPlotlyChart"]{
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 8px 10px;
+}
 
 /* Tab narrative components (required per playbook) */
 .tab-intro{
@@ -313,7 +338,27 @@ button[data-baseweb="tab"][aria-selected="true"]{
   border-left: 4px solid var(--lava-600);
 }
 </style>
-        """,
-        unsafe_allow_html=True,
-    )
+"""
+
+    tokens = {
+        "__LAVA_600__": str(THEME["accent_primary"]),
+        "__LAVA_500__": str(THEME["accent_secondary"]),
+        "__NAVY_900__": str(THEME["navy_900"]),
+        "__NAVY_800__": str(THEME["navy_800"]),
+        "__BG_PRIMARY__": str(THEME["bg_primary"]),
+        "__BG_SECONDARY__": str(THEME["bg_secondary"]),
+        "__CARD_BG__": str(THEME["bg_card"]),
+        "__CARD_BORDER__": str(THEME["border_color"]),
+        "__TEXT_PRIMARY__": str(THEME["text_primary"]),
+        "__TEXT_SECONDARY__": str(THEME["text_secondary"]),
+        "__GRID__": str(THEME["grid"]),
+        "__SHADOW__": str(THEME["shadow"]),
+        "__RADIUS_PX__": str(radius),
+        "__SUCCESS__": str(THEME["success"]),
+        "__DANGER__": str(THEME["danger"]),
+    }
+    for k, v in tokens.items():
+        css = css.replace(k, v)
+
+    st.markdown(css, unsafe_allow_html=True)
 

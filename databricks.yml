@@ -20,6 +20,9 @@ variables:
   warehouse_id:
     description: SQL Warehouse ID for DBSQL/Genie usage (optional)
     default: ""
+  dashboard_id:
+    description: AI/BI Dashboard ID used by dashboard_task (optional)
+    default: ""
   # Service principal for production deployments (optional)
   service_principal_name:
     description: Service principal for running jobs and apps
@@ -59,6 +62,8 @@ targets:
     variables:
       catalog: welch
       schema: demand_planning_demo
+      warehouse_id: "148ccb90800933a1"
+      dashboard_id: "01f0fd5419f41998aa76722bb82632cb"
       # Run the existing DLT pipeline already created in the workspace.
       existing_dlt_pipeline_id: "bd85bd8e-387a-4488-8048-2f7e7dcfadc0"
     workspace:

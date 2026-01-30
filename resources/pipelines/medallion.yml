@@ -10,7 +10,5 @@ resources:
       libraries:
         - notebook:
             path: ${workspace.file_path}/pipelines/dlt_supply_chain_medallion
-      configuration:
-        # Enable true ML scoring in DLT by pointing at a registered model (optional):
-        demo.late_risk_model_name: "${var.late_risk_model_name}"
+      # No custom pipeline configuration required.
 

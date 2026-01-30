@@ -1,0 +1,35 @@
+name: Databricks Bundle Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Bundle target (dev|azure)"
+        required: true
+        default: "azure"
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Deploy bundle + run job
+        env:
+          # PAT auth (simple). Store these in GitHub Secrets.
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          chmod +x scripts/ci_deploy.sh
+          scripts/ci_deploy.sh "${{ github.event.inputs.target || 'azure' }}"
+

@@ -33,9 +33,8 @@
 
 ### 2) ML in the loop (late-risk)
 - Training notebook: `notebooks/05_ml_late_risk.py`
-- Bundle job: `resources/jobs/train_and_register_late_risk.yml`
+- Bundle job: `resources/jobs/demand_planning_demo_job.yml` (canonical end-to-end job)
 - Model (UC): `<catalog>.<schema>.order_late_risk_model`
-- DLT scoring config: `demo.late_risk_model_name`
 
 ### 3) Streamlit app contract
 - App entrypoint: `app/app.py`

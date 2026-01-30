@@ -22,9 +22,8 @@ Run order:
    - `bronze_external_signals_raw`
 3. Run the **DLT/SDP pipeline** `pipelines/dlt_supply_chain_medallion.py` – produces **Silver/Gold**
 4. `notebooks/03_forecast_weekly_mlflow` – weekly forecasting by `(sku_family, region)` (writes `demand_forecast*`)
-5. `notebooks/04_post_forecast_kpis.py` – refreshes post-forecast views (e.g., `kpi_mape_weekly`)
-6. `notebooks/05_ml_late_risk` – MLflow training + scoring into Gold (`order_late_risk_scored_ml`)
-6.5. (Optional) `notebooks/06_uc_metric_views.py` – creates Unity Catalog **metric views** over the Gold tables for consistent KPI definitions in Dashboards/Genie
+5. `notebooks/05_ml_late_risk` – MLflow training + scoring into Gold (`order_late_risk_scored_ml`)
+6. `notebooks/06_kpi_metric_refresh.py` – refreshes post-forecast KPI views (MAPE + joins) **and** creates UC metric views (semantic layer)
 7. Optional notebook “dashboard” views:
    - `notebooks/90_dashboard_demand_planner`
    - `notebooks/91_dashboard_logistics_service`
@@ -97,18 +96,14 @@ This demo includes a minimal “ML that changes a decision” workflow:
 - **Train + register model (MLflow)**: run `notebooks/05_ml_late_risk`
   - Trains a logistic regression model to predict late delivery at order time
   - Logs metrics and registers a UC model (default name: `<catalog>.<schema>.order_late_risk_model`)
-  - Writes a **Gold** table: `order_late_risk_scored_ml` (to avoid colliding with the DLT-owned `order_late_risk_scored`)
+  - Writes a **Gold** table: `order_late_risk_scored_ml`
 
-### Optional: score inside the DLT pipeline
+### Scoring is owned by Notebook 5 (simplified)
 
-The DLT pipeline includes a Gold table `order_late_risk_scored` that:
-- uses the MLflow registered model if configured, otherwise
-- **falls back to a heuristic** risk score (so the pipeline never breaks)
+To avoid duplicated ownership and table-name collisions, **late-risk scoring is produced by** `notebooks/05_ml_late_risk` into:
+- `order_late_risk_scored_ml`
 
-To enable true ML scoring in DLT, set pipeline configuration:
-- `demo.late_risk_model_name` = `<catalog>.<schema>.order_late_risk_model`
-
-The Streamlit app uses `order_late_risk_scored_ml` by default (created by Notebook 5) to show **late-risk hotspots** and drive scenarios.
+This keeps the DLT pipeline focused on Bronze→Silver→Gold operational/KPI tables, while ML remains explicitly “in the loop” and traceable in MLflow/UC.
 
 ## Genie on the same Gold tables (AI/BI Genie)
 
@@ -126,7 +121,7 @@ High-level steps (see the official “Set up and manage an AI/BI Genie space” 
   - `kpi_freight_weekly`
   - `kpi_premium_freight_weekly`
   - `kpi_energy_intensity_weekly`
-  - `order_late_risk_scored_ml` (Notebook 5 output) and/or `order_late_risk_scored` (DLT output)
+  - `order_late_risk_scored_ml` (Notebook 5 output)
 - Copy the **Space ID** and set `GENIE_SPACE_ID`
 
 ### Wire Genie into the app
@@ -146,7 +141,7 @@ This repo is structured to be deployed as a **Databricks Asset Bundle**:
 
 - **Databricks App**: `app/` (Streamlit) + `app/app.yaml`
 - **DLT/SDP pipeline**: `pipelines/dlt_supply_chain_medallion.py` (declared in `resources/pipelines/medallion.yml`)
-- **ML training job**: `notebooks/05_ml_late_risk.py` (declared in `resources/jobs/train_and_register_late_risk.yml`)
+- **Canonical demo job**: `resources/jobs/demand_planning_demo_job.yml` (end-to-end workflow)
 - **SQL objects/assets**: `sql/kpi_starter_queries.sql`
 
 Bundle entrypoint: `databricks.yml`
@@ -156,7 +151,7 @@ Typical workflow:
 ```bash
 databricks bundle validate
 databricks bundle deploy -t dev
-databricks bundle run -t dev train_and_register_late_risk
+databricks bundle run -t dev Demand_Planning_Demo_Job
 ```
 
 ### One-command demo deploy (recommended)
@@ -182,16 +177,16 @@ export DATABRICKS_CONFIG_PROFILE=azure
 - `notebooks/02_generate_bronze`
 - Run the DLT/SDP pipeline (`pipelines/dlt_supply_chain_medallion.py`)
 - `notebooks/03_forecast_weekly_mlflow`
-- `notebooks/04_post_forecast_kpis.py`
 - `notebooks/05_ml_late_risk`
+- `notebooks/06_kpi_metric_refresh.py`
 
-This is automated in the `demand_planning_end_to_end` workflow job.
+This is automated in the `Demand_Planning_Demo_Job`.
 
 ### If you already created the DLT pipeline in the UI
 
 If you already created a DLT pipeline in the workspace (and just want the bundle to *run it*), set:
 - `existing_dlt_pipeline_id` in `databricks.yml` (under your target), or override at runtime, then run:
-  - `demand_planning_end_to_end_existing_dlt`
+  - `Demand_Planning_Demo_Job`
 
 
 ## Requirements / assumptions

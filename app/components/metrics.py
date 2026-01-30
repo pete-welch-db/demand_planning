@@ -8,6 +8,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from config import THEME
+
 
 @dataclass(frozen=True)
 class Kpi:
@@ -46,14 +48,32 @@ def create_plotly_theme() -> dict:
     - branded colorway
     - soft grids
     """
+    # For readability in Streamlit, use a white chart surface (cards) rather than transparency.
     return {
         "font_family": "DM Sans, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-        "paper_bgcolor": "rgba(0,0,0,0)",
-        "plot_bgcolor": "rgba(0,0,0,0)",
-        "colorway": ["#FF3621", "#111C33", "#FF5F46", "#0B1220", "#6B7280"],
-        "xaxis": {"gridcolor": "rgba(17, 24, 39, 0.10)", "zeroline": False},
-        "yaxis": {"gridcolor": "rgba(17, 24, 39, 0.10)", "zeroline": False},
-        "legend": {"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "left", "x": 0},
+        "font_color": THEME["text_primary"],
+        "paper_bgcolor": THEME["bg_card"],
+        "plot_bgcolor": THEME["bg_card"],
+        # Brand-forward but readable palette (avoid overly saturated rainbow lines).
+        "colorway": [
+            THEME["navy_900"],
+            THEME["accent_primary"],
+            THEME["navy_800"],
+            THEME["accent_secondary"],
+            "#6B7280",
+            "#9CA3AF",
+        ],
+        "gridcolor": THEME["grid"],
+        "axis_linecolor": THEME["border_color"],
+        "legend": {
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "left",
+            "x": 0,
+            "font": {"color": THEME["text_secondary"]},
+        },
+        "title_font": {"color": THEME["navy_900"], "size": 16},
     }
 
 
@@ -61,14 +81,30 @@ def apply_plotly_theme(fig: go.Figure, x_title: str, y_title: str) -> go.Figure:
     theme = create_plotly_theme()
     fig.update_layout(
         margin=dict(l=10, r=10, t=44, b=10),
-        font=dict(family=theme["font_family"]),
+        font=dict(family=theme["font_family"], color=theme["font_color"]),
         paper_bgcolor=theme["paper_bgcolor"],
         plot_bgcolor=theme["plot_bgcolor"],
         colorway=theme["colorway"],
         legend=theme["legend"],
+        title_font=theme["title_font"],
     )
-    fig.update_xaxes(title_text=x_title, gridcolor=theme["xaxis"]["gridcolor"], zeroline=False)
-    fig.update_yaxes(title_text=y_title, gridcolor=theme["yaxis"]["gridcolor"], zeroline=False)
+    fig.update_traces(line=dict(width=2))
+    fig.update_xaxes(
+        title_text=x_title,
+        gridcolor=theme["gridcolor"],
+        zeroline=False,
+        linecolor=theme["axis_linecolor"],
+        tickfont=dict(color=THEME["text_secondary"]),
+        title_font=dict(color=THEME["text_secondary"]),
+    )
+    fig.update_yaxes(
+        title_text=y_title,
+        gridcolor=theme["gridcolor"],
+        zeroline=False,
+        linecolor=theme["axis_linecolor"],
+        tickfont=dict(color=THEME["text_secondary"]),
+        title_font=dict(color=THEME["text_secondary"]),
+    )
     return fig
 
 

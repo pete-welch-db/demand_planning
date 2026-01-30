@@ -14,8 +14,9 @@ from dotenv import load_dotenv
 #
 THEME = {
     # Backgrounds (Oat)
-    "bg_primary": "#EEEDE9",     # Oat Medium (page background)
-    "bg_secondary": "#F9F7F4",   # Oat Light (sidebar / alternate sections)
+    # Slightly lighter, closer to “Scrap Intelligence” reference UI
+    "bg_primary": "#F4F3EE",     # page background
+    "bg_secondary": "#FFFFFF",   # sidebar / top surfaces
     "bg_card": "#FFFFFF",       # card surface
     # Accents (Lava + Navy)
     "accent_primary": "#FF3621",    # Lava 600
@@ -25,9 +26,9 @@ THEME = {
     # Text + borders
     "text_primary": "#111827",
     "text_secondary": "rgba(17, 24, 39, 0.72)",
-    "border_color": "#e0dfdc",
+    "border_color": "#E6E4E0",
     "grid": "rgba(17, 24, 39, 0.10)",
-    "shadow": "0 1px 2px rgba(16,24,40,0.06)",
+    "shadow": "0 1px 3px rgba(16,24,40,0.08)",
     "radius_px": 10,
     # Status colors
     "success": "#067647",
