@@ -19,6 +19,10 @@
 # COMMAND ----------
 from pyspark.sql import functions as F
 
+# Set catalog/schema context for DDL operations
+spark.sql(f"USE CATALOG `{cfg.catalog}`")
+spark.sql(f"USE SCHEMA `{cfg.schema}`")
+
 
 def _exists(obj_name: str) -> bool:
     try:

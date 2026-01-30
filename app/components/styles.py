@@ -61,6 +61,23 @@ html, body, [data-testid="stAppViewContainer"]{
 [data-testid="stSidebar"] *{
   font-family: "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif !important;
 }
+/* Sidebar text colors - ensure visibility */
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] h4,
+[data-testid="stSidebar"] h5,
+[data-testid="stSidebar"] h6,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] div{
+  color: var(--text-primary) !important;
+}
+[data-testid="stSidebar"] .stCaption,
+[data-testid="stSidebar"] small{
+  color: var(--text-secondary) !important;
+}
 
 /* Sidebar nav (Scrap Intelligence-style buttons) */
 [data-testid="stSidebar"] div[role="radiogroup"] > label{
@@ -69,6 +86,10 @@ html, body, [data-testid="stAppViewContainer"]{
   border-radius: 12px !important;
   padding: 10px 12px !important;
   margin: 0 0 10px 0 !important;
+  color: var(--text-primary) !important;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] > label span{
+  color: var(--text-primary) !important;
 }
 [data-testid="stSidebar"] div[role="radiogroup"] > label:hover{
   border-color: rgba(255, 54, 33, 0.40) !important;
@@ -77,6 +98,10 @@ html, body, [data-testid="stAppViewContainer"]{
 [data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked){
   border-color: var(--lava-600) !important;
   box-shadow: 0 1px 3px rgba(255,54,33,0.15) !important;
+  background: var(--lava-600) !important;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) span{
+  color: white !important;
 }
 
 /* Tighter page padding */
@@ -272,6 +297,29 @@ button[data-baseweb="tab"][aria-selected="true"]{
 
 /* Misc */
 .subtle{ color: var(--text-secondary); font-size: 14px; }
+
+/* Streamlit native metric component - ensure label visibility */
+[data-testid="stMetric"] label,
+[data-testid="stMetricLabel"]{
+  color: var(--text-primary);
+  opacity: 1;
+}
+[data-testid="stMetric"] [data-testid="stMetricValue"]{
+  color: var(--navy-900);
+}
+[data-testid="stMetric"] [data-testid="stMetricDelta"]{
+  color: var(--text-secondary);
+}
+
+/* Slider labels */
+[data-testid="stSlider"] > label{
+  color: var(--text-primary);
+}
+
+/* All form labels (toggle, selectbox, etc) - but not inside custom HTML */
+[data-testid="stWidgetLabel"] label{
+  color: var(--text-primary);
+}
 
 /* Charts: render on card surface (improves contrast on Oat background) */
 div[data-testid="stPlotlyChart"]{

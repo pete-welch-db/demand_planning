@@ -7,6 +7,13 @@ Tells the story: WHAT, WHY, WHEN, HOW — for executives and planning leaders.
 
 import streamlit as st
 
+from config import AppConfig
+
+
+def render(cfg: AppConfig, use_mock: bool) -> None:
+    """Entry point called by app.py router."""
+    render_landing_page()
+
 
 def render_landing_page():
     """Render the business-focused landing page for supply chain & demand planning."""

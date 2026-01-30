@@ -68,8 +68,8 @@ targets:
       existing_dlt_pipeline_id: "bd85bd8e-387a-4488-8048-2f7e7dcfadc0"
     workspace:
       host: https://adb-984752964297111.11.azuredatabricks.net
-      # Optional: keep bundle assets co-located with Apps projects in your user space.
-      root_path: /Workspace/Shared/apps/${var.demo_name}
+      # Match the Git repo location in your workspace
+      root_path: /Workspace/Users/pete.welch@databricks.com/demand_planning
 
   # Production target (optional; enable when you want run-as service principal + permissions)
   # prod:
