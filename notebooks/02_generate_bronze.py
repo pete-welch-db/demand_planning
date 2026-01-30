@@ -33,37 +33,55 @@ spark.conf.set("spark.sql.shuffle.partitions", "auto")
 regions = ["Northeast", "Southeast", "Midwest", "SouthCentral", "West"]
 
 # ============================================================================
-# REAL ADS PLANT LOCATIONS (Manufacturing facilities)
+# ADS PLANT LOCATIONS (Real + Synthetic for full regional coverage)
+# Real ADS facilities in Midwest & Southeast; synthetic for other regions
 # ============================================================================
 ADS_PLANTS = [
     # (plant_id, plant_name, city, state, lat, lon, region)
+    # --- MIDWEST (Real ADS locations) ---
     ("FINDLAY-N", "ADS Findlay North Plant", "Findlay", "OH", 41.0442, -83.6499, "Midwest"),
     ("FINDLAY-S", "ADS Findlay South Plant", "Findlay", "OH", 41.0200, -83.6800, "Midwest"),
-    ("BUENA-VISTA", "ADS Buena Vista Plant", "Buena Vista", "VA", 37.7343, -79.3539, "Southeast"),
-    ("BESSEMER-NC", "ADS Bessemer City Plant", "Bessemer City", "NC", 35.2849, -81.2837, "Southeast"),
-    ("BESSEMER-AL", "ADS Bessemer Plant", "Bessemer", "AL", 33.4018, -86.9544, "Southeast"),
     ("BRAZIL", "ADS Brazil Plant", "Brazil", "IN", 39.5236, -87.1250, "Midwest"),
-    ("BUFORD", "ADS Buford (Nyloplast) Plant", "Buford", "GA", 34.1207, -84.0043, "Southeast"),
     ("NAPOLEON", "ADS Napoleon Plant", "Napoleon", "OH", 41.3920, -84.1252, "Midwest"),
     ("BROOKLYN", "ADS Brooklyn Plant", "Brooklyn", "MI", 42.1061, -84.2483, "Midwest"),
     ("CLIFFORD", "ADS Clifford Plant", "Clifford", "MI", 43.3089, -83.1758, "Midwest"),
+    # --- SOUTHEAST (Real ADS locations) ---
+    ("BUENA-VISTA", "ADS Buena Vista Plant", "Buena Vista", "VA", 37.7343, -79.3539, "Southeast"),
+    ("BESSEMER-NC", "ADS Bessemer City Plant", "Bessemer City", "NC", 35.2849, -81.2837, "Southeast"),
+    ("BESSEMER-AL", "ADS Bessemer Plant", "Bessemer", "AL", 33.4018, -86.9544, "Southeast"),
+    ("BUFORD", "ADS Buford (Nyloplast) Plant", "Buford", "GA", 34.1207, -84.0043, "Southeast"),
+    # --- NORTHEAST (Synthetic for demo coverage) ---
+    ("HARRISBURG", "ADS Harrisburg Plant", "Harrisburg", "PA", 40.2732, -76.8867, "Northeast"),
+    ("ALBANY", "ADS Albany Plant", "Albany", "NY", 42.6526, -73.7562, "Northeast"),
+    # --- SOUTHCENTRAL (Synthetic for demo coverage) ---
+    ("DALLAS", "ADS Dallas Plant", "Dallas", "TX", 32.7767, -96.7970, "SouthCentral"),
+    ("TULSA", "ADS Tulsa Plant", "Tulsa", "OK", 36.1540, -95.9928, "SouthCentral"),
+    # --- WEST (Synthetic for demo coverage) ---
+    ("PHOENIX", "ADS Phoenix Plant", "Phoenix", "AZ", 33.4484, -112.0740, "West"),
+    ("DENVER", "ADS Denver Plant", "Denver", "CO", 39.7392, -104.9903, "West"),
 ]
 
 # ============================================================================
-# REAL ADS DISTRIBUTION CENTER / FACILITY LOCATIONS
+# ADS DISTRIBUTION CENTER LOCATIONS (Real + Synthetic for full coverage)
 # ============================================================================
 ADS_DCS = [
     # (dc_id, dc_name, city, state, lat, lon, region)
+    # --- WEST (Real ADS locations) ---
     ("BENICIA", "ADS Benicia Logistics", "Benicia", "CA", 38.0494, -122.1586, "West"),
     ("SALT-LAKE", "ADS North Salt Lake Distribution", "North Salt Lake", "UT", 40.8477, -111.9066, "West"),
+    # --- MIDWEST (Real ADS locations) ---
     ("MILFORD", "ADS Milford Distribution", "Milford", "MI", 42.5847, -83.5966, "Midwest"),
     ("OWOSSO", "ADS Owosso Facility", "Owosso", "MI", 42.9939, -84.1766, "Midwest"),
     ("LONDON", "ADS London Facility", "London", "OH", 39.8864, -83.4482, "Midwest"),
     ("NEW-MIAMI", "ADS New Miami Facility", "New Miami", "OH", 39.4342, -84.5369, "Midwest"),
     ("COLUMBUS", "ADS Columbus Facility", "Columbus", "OH", 40.0992, -83.0158, "Midwest"),
-    ("CALHOUN", "ADS Calhoun Yard", "Calhoun", "GA", 34.5026, -84.9510, "Southeast"),
-    ("CABOT", "ADS Cabot Yard", "Cabot", "AR", 34.9745, -92.0165, "SouthCentral"),
     ("BUXTON", "ADS Buxton Yard", "Buxton", "ND", 47.6194, -97.0978, "Midwest"),
+    # --- SOUTHEAST (Real ADS locations) ---
+    ("CALHOUN", "ADS Calhoun Yard", "Calhoun", "GA", 34.5026, -84.9510, "Southeast"),
+    # --- SOUTHCENTRAL (Real ADS location) ---
+    ("CABOT", "ADS Cabot Yard", "Cabot", "AR", 34.9745, -92.0165, "SouthCentral"),
+    # --- NORTHEAST (Synthetic for demo coverage) ---
+    ("EDISON", "ADS Edison Distribution", "Edison", "NJ", 40.5187, -74.4121, "Northeast"),
 ]
 
 # Create Spark DataFrames from real locations
@@ -112,7 +130,7 @@ customers = (
     .drop("cust_n")
 )
 
-# Simple “closest” mapping: each region is served by one “primary” DC and a couple plants
+# Map each region to its primary DC and list of plants
 dc_by_region = (
     dcs.groupBy("dc_region")
       .agg(F.min("dc_id").alias("primary_dc_id"))
@@ -123,6 +141,11 @@ plants_by_region = (
       .agg(F.collect_list("plant_id").alias("plants_in_region"))
       .withColumnRenamed("plant_region", "region")
 )
+
+print("Plants by region:")
+display(plants_by_region)
+print("DCs by region:")
+display(dc_by_region)
 
 display(plants.limit(10))
 display(dcs.limit(10))
