@@ -79,7 +79,8 @@ resources:
           dashboard_task:
             subscription: {}
             warehouse_id: "${var.warehouse_id}"
-            dashboard_id: "${var.dashboard_id}"
+            # Reference the bundle-deployed dashboard (falls back to var if bundle dashboard not deployed)
+            dashboard_id: ${resources.dashboards.demand_planning_control_tower.id}
 
         - task_key: Demand_Planner_Dashboard
           depends_on:
