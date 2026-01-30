@@ -187,7 +187,7 @@ external = (
     .select(F.col("date"), F.col("region"), "construction_index", "precipitation_mm", "avg_temp_c")
 )
 
-(external.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_external_signals_raw")))
+(external.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(cfg.table("bronze_external_signals_raw")))
 display(spark.table(cfg.table("bronze_external_signals_raw")).limit(5))
 
 # COMMAND ----------
@@ -336,7 +336,7 @@ erp_orders = (
     )
 )
 
-(erp_orders.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_erp_orders_raw")))
+(erp_orders.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(cfg.table("bronze_erp_orders_raw")))
 display(spark.table(cfg.table("bronze_erp_orders_raw")).limit(5))
 
 # COMMAND ----------
@@ -419,7 +419,7 @@ tms_shipments = tms.select(
     "co2_kg",
 )
 
-(tms_shipments.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_tms_shipments_raw")))
+(tms_shipments.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(cfg.table("bronze_tms_shipments_raw")))
 display(spark.table(cfg.table("bronze_tms_shipments_raw")).limit(5))
 
 # COMMAND ----------
@@ -459,7 +459,7 @@ prod = (
     .select("date", "plant_id", "sku_family", "units_produced", "energy_kwh")
 )
 
-(prod.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_production_output_raw")))
+(prod.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(cfg.table("bronze_production_output_raw")))
 display(spark.table(cfg.table("bronze_production_output_raw")).limit(5))
 
 # COMMAND ----------
@@ -537,7 +537,12 @@ inventory_positions = (
     )
 )
 
-(inventory_positions.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_inventory_positions_raw")))
+# Use overwriteSchema to handle schema changes (e.g., nullable columns)
+(inventory_positions.write
+    .format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .saveAsTable(cfg.table("bronze_inventory_positions_raw")))
 display(spark.table(cfg.table("bronze_inventory_positions_raw")).limit(5))
 
 # COMMAND ----------
@@ -548,12 +553,12 @@ display(spark.table(cfg.table("bronze_inventory_positions_raw")).limit(5))
 
 # COMMAND ----------
 # Write plant locations
-(plants.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_plant_locations")))
+(plants.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(cfg.table("bronze_plant_locations")))
 print(f"Wrote {plants.count()} plant locations")
 display(plants)
 
 # Write DC locations
-(dcs.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_dc_locations")))
+(dcs.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(cfg.table("bronze_dc_locations")))
 print(f"Wrote {dcs.count()} DC locations")
 display(dcs)
 
