@@ -12,21 +12,46 @@
 # Examples:
 #   ./deploy.sh          # Deploy to default (dev) target
 #   ./deploy.sh azure    # Deploy to azure target
+#
+# Authentication:
+#   - Option 1: Set DATABRICKS_HOST and DATABRICKS_TOKEN in .env (auto-loaded)
+#   - Option 2: Configure a CLI profile and pass as second arg or DATABRICKS_CONFIG_PROFILE
+#   - Option 3: Use `databricks auth login --host <host>` for interactive login
 
 set -e
 
-TARGET="${1:-dev}"
-PROFILE="${2:-${DATABRICKS_CONFIG_PROFILE:-}}"
+# Load .env if present (provides DATABRICKS_HOST / DATABRICKS_TOKEN)
+if [[ -f .env ]]; then
+  echo "📄 Loading environment from .env..."
+  set -a
+  source .env
+  set +a
+fi
 
+TARGET="${1:-dev}"
+PROFILE="${2:-}"
+
+# Build profile flag only if explicitly provided as arg
 PROFILE_FLAG=""
 if [[ -n "$PROFILE" ]]; then
   PROFILE_FLAG="--profile $PROFILE"
+else
+  # If using token auth (DATABRICKS_HOST + DATABRICKS_TOKEN), unset any stale profile
+  # env var so CLI doesn't get confused by mixed auth sources.
+  if [[ -n "$DATABRICKS_HOST" && -n "$DATABRICKS_TOKEN" ]]; then
+    unset DATABRICKS_CONFIG_PROFILE
+  fi
 fi
 
 if [[ "$TARGET" == "-h" || "$TARGET" == "--help" ]]; then
-  echo "Usage: ./deploy.sh [target]"
+  echo "Usage: ./deploy.sh [target] [profile]"
+  echo ""
   echo "Targets: dev, azure"
-  echo "Optional: ./deploy.sh <target> <profile>   (or set DATABRICKS_CONFIG_PROFILE)"
+  echo ""
+  echo "Authentication (in order of precedence):"
+  echo "  1. DATABRICKS_HOST + DATABRICKS_TOKEN env vars (auto-loaded from .env)"
+  echo "  2. CLI profile: ./deploy.sh <target> <profile>"
+  echo "  3. Interactive: databricks auth login --host <host>"
   exit 0
 fi
 
