@@ -7,6 +7,13 @@ resources:
         owner: "pete.welch"
       queue:
         enabled: true
+
+      # Use serverless compute for all notebook tasks
+      environments:
+        - environment_key: Default
+          spec:
+            client: "1"
+
       tasks:
         - task_key: UC_Setup
           notebook_task:
@@ -14,10 +21,7 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
-            num_workers: 1
+          environment_key: Default
 
         - task_key: Generate_Bronze
           depends_on:
@@ -27,10 +31,7 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
-            num_workers: 2
+          environment_key: Default
 
         - task_key: DLT_Pipeline
           depends_on:
@@ -47,10 +48,7 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
-            num_workers: 2
+          environment_key: Default
 
         - task_key: ML_Late_Risk
           depends_on:
@@ -63,10 +61,7 @@ resources:
               model_name: "${var.late_risk_model_name}"
               train_lookback_days: "540"
               test_days: "90"
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
-            num_workers: 2
+          environment_key: Default
 
         - task_key: KPI_Metric_Refresh
           depends_on:
@@ -76,10 +71,7 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
-            num_workers: 1
+          environment_key: Default
 
         - task_key: Dashboard_Refresh
           depends_on:
@@ -97,10 +89,7 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
-            num_workers: 1
+          environment_key: Default
 
         - task_key: Logistics_Service_Dashboard
           depends_on:
@@ -110,10 +99,7 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
-            num_workers: 1
+          environment_key: Default
 
         - task_key: Sustainability_Dashboard
           depends_on:
@@ -123,8 +109,4 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
-            num_workers: 1
-
+          environment_key: Default
