@@ -26,26 +26,55 @@ spark.conf.set("spark.sql.shuffle.partitions", "auto")
 # COMMAND ----------
 # MAGIC %md
 # MAGIC ### 2.1 Dimensions (regions, plants, DCs, SKUs, customers)
+# MAGIC 
+# MAGIC Uses **real ADS (Advanced Drainage Systems) locations** for realistic demo data.
 
 # COMMAND ----------
 regions = ["Northeast", "Southeast", "Midwest", "SouthCentral", "West"]
 
-plants = (
-    spark.range(cfg.num_plants)
-    .select(
-        (F.col("id") + 1).cast("int").alias("plant_n"),
-    )
-    .withColumn("plant_id", F.format_string("PL%02d", F.col("plant_n")))
-    .withColumn("plant_region", F.element_at(F.array(*[F.lit(r) for r in regions]), (F.col("plant_n") % F.lit(len(regions))) + 1))
-    .drop("plant_n")
+# ============================================================================
+# REAL ADS PLANT LOCATIONS (Manufacturing facilities)
+# ============================================================================
+ADS_PLANTS = [
+    # (plant_id, plant_name, city, state, lat, lon, region)
+    ("FINDLAY-N", "ADS Findlay North Plant", "Findlay", "OH", 41.0442, -83.6499, "Midwest"),
+    ("FINDLAY-S", "ADS Findlay South Plant", "Findlay", "OH", 41.0200, -83.6800, "Midwest"),
+    ("BUENA-VISTA", "ADS Buena Vista Plant", "Buena Vista", "VA", 37.7343, -79.3539, "Southeast"),
+    ("BESSEMER-NC", "ADS Bessemer City Plant", "Bessemer City", "NC", 35.2849, -81.2837, "Southeast"),
+    ("BESSEMER-AL", "ADS Bessemer Plant", "Bessemer", "AL", 33.4018, -86.9544, "Southeast"),
+    ("BRAZIL", "ADS Brazil Plant", "Brazil", "IN", 39.5236, -87.1250, "Midwest"),
+    ("BUFORD", "ADS Buford (Nyloplast) Plant", "Buford", "GA", 34.1207, -84.0043, "Southeast"),
+    ("NAPOLEON", "ADS Napoleon Plant", "Napoleon", "OH", 41.3920, -84.1252, "Midwest"),
+    ("BROOKLYN", "ADS Brooklyn Plant", "Brooklyn", "MI", 42.1061, -84.2483, "Midwest"),
+    ("CLIFFORD", "ADS Clifford Plant", "Clifford", "MI", 43.3089, -83.1758, "Midwest"),
+]
+
+# ============================================================================
+# REAL ADS DISTRIBUTION CENTER / FACILITY LOCATIONS
+# ============================================================================
+ADS_DCS = [
+    # (dc_id, dc_name, city, state, lat, lon, region)
+    ("BENICIA", "ADS Benicia Logistics", "Benicia", "CA", 38.0494, -122.1586, "West"),
+    ("SALT-LAKE", "ADS North Salt Lake Distribution", "North Salt Lake", "UT", 40.8477, -111.9066, "West"),
+    ("MILFORD", "ADS Milford Distribution", "Milford", "MI", 42.5847, -83.5966, "Midwest"),
+    ("OWOSSO", "ADS Owosso Facility", "Owosso", "MI", 42.9939, -84.1766, "Midwest"),
+    ("LONDON", "ADS London Facility", "London", "OH", 39.8864, -83.4482, "Midwest"),
+    ("NEW-MIAMI", "ADS New Miami Facility", "New Miami", "OH", 39.4342, -84.5369, "Midwest"),
+    ("COLUMBUS", "ADS Columbus Facility", "Columbus", "OH", 40.0992, -83.0158, "Midwest"),
+    ("CALHOUN", "ADS Calhoun Yard", "Calhoun", "GA", 34.5026, -84.9510, "Southeast"),
+    ("CABOT", "ADS Cabot Yard", "Cabot", "AR", 34.9745, -92.0165, "SouthCentral"),
+    ("BUXTON", "ADS Buxton Yard", "Buxton", "ND", 47.6194, -97.0978, "Midwest"),
+]
+
+# Create Spark DataFrames from real locations
+plants = spark.createDataFrame(
+    [(p[0], p[1], p[2], p[3], float(p[4]), float(p[5]), p[6]) for p in ADS_PLANTS],
+    ["plant_id", "plant_name", "plant_city", "plant_state", "plant_lat", "plant_lon", "plant_region"]
 )
 
-dcs = (
-    spark.range(cfg.num_dcs)
-    .select((F.col("id") + 1).cast("int").alias("dc_n"))
-    .withColumn("dc_id", F.format_string("DC%02d", F.col("dc_n")))
-    .withColumn("dc_region", F.element_at(F.array(*[F.lit(r) for r in regions]), (F.col("dc_n") % F.lit(len(regions))) + 1))
-    .drop("dc_n")
+dcs = spark.createDataFrame(
+    [(d[0], d[1], d[2], d[3], float(d[4]), float(d[5]), d[6]) for d in ADS_DCS],
+    ["dc_id", "dc_name", "dc_city", "dc_state", "dc_lat", "dc_lon", "dc_region"]
 )
 
 sku_families = ["pipe", "chambers", "structures"]
@@ -513,7 +542,24 @@ display(spark.table(cfg.table("bronze_inventory_positions_raw")).limit(5))
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ### 2.7 Quick row counts (sanity check)
+# MAGIC ### 2.7 Location reference tables (for geo visualization)
+# MAGIC 
+# MAGIC Write plant and DC location data with lat/lon for dashboard geo maps.
+
+# COMMAND ----------
+# Write plant locations
+(plants.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_plant_locations")))
+print(f"Wrote {plants.count()} plant locations")
+display(plants)
+
+# Write DC locations
+(dcs.write.format("delta").mode("overwrite").saveAsTable(cfg.table("bronze_dc_locations")))
+print(f"Wrote {dcs.count()} DC locations")
+display(dcs)
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ### 2.8 Quick row counts (sanity check)
 
 # COMMAND ----------
 for t in [
@@ -521,7 +567,10 @@ for t in [
     "bronze_tms_shipments_raw",
     "bronze_inventory_positions_raw",
     "bronze_production_output_raw",
-] + ["bronze_external_signals_raw"]:
+    "bronze_external_signals_raw",
+    "bronze_plant_locations",
+    "bronze_dc_locations",
+]:
     n = spark.table(cfg.table(t)).count()
     print(f"{t}: {n:,}")
 

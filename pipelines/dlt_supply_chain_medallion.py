@@ -74,6 +74,16 @@ def bronze_external_signals_raw():
     return spark.table(_src_table("bronze_external_signals_raw"))
 
 
+@dlt.view(name="bronze_plant_locations")
+def bronze_plant_locations():
+    return spark.table(_src_table("bronze_plant_locations"))
+
+
+@dlt.view(name="bronze_dc_locations")
+def bronze_dc_locations():
+    return spark.table(_src_table("bronze_dc_locations"))
+
+
 # COMMAND ----------
 # MAGIC %md
 # MAGIC ## SILVER (cleaned/standardized operational tables)
@@ -144,6 +154,22 @@ def silver_external_signals():
             F.avg("avg_temp_c").alias("avg_temp_c"),
         )
     )
+
+
+@dlt.table(
+    name="silver_plant_locations",
+    comment="Silver: ADS manufacturing plant locations with geo coordinates.",
+)
+def silver_plant_locations():
+    return dlt.read("bronze_plant_locations")
+
+
+@dlt.table(
+    name="silver_dc_locations",
+    comment="Silver: ADS distribution center locations with geo coordinates.",
+)
+def silver_dc_locations():
+    return dlt.read("bronze_dc_locations")
 
 
 # COMMAND ----------
