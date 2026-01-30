@@ -72,6 +72,15 @@ echo "🔄 Running Demand Planning Demo Job (UC → Bronze → DLT → Forecast 
 databricks bundle run Demand_Planning_Demo_Job --target "$TARGET" $PROFILE_FLAG
 
 echo ""
+echo "🤖 Deploying Genie space (optional - requires databricks-sdk)..."
+if command -v python3 &> /dev/null && python3 -c "import databricks.sdk" 2>/dev/null; then
+  python3 scripts/deploy_genie_space.py && GENIE_STATUS="✅" || GENIE_STATUS="⚠️  (manual setup required)"
+else
+  echo "  Skipping: databricks-sdk not installed (pip install databricks-sdk)"
+  GENIE_STATUS="⏭️  Skipped (install databricks-sdk to enable)"
+fi
+
+echo ""
 echo "✅ Deployment complete!"
 echo ""
 echo "Pipeline stages completed:"
@@ -81,4 +90,52 @@ echo "  3. ✅ Forecasting: demand_forecast tables written"
 echo "  4. ✅ ML: late-delivery risk model trained + registered + scored into Gold"
 echo "  5. ✅ KPI+Metric refresh: post-forecast KPI views + UC metric views"
 echo "  6. ✅ Dashboards: notebook dashboards refreshed + AI/BI dashboard refresh task"
+echo "  7. ${GENIE_STATUS} Genie space: AI/BI Genie for natural language queries"
+
+# Get dashboard ID from bundle summary if available
+echo ""
+echo "=============================================="
+echo "📋 App Configuration (add to .env for Streamlit):"
+echo "=============================================="
+echo ""
+
+# Try to get dashboard ID from bundle
+DASHBOARD_ID=""
+if databricks bundle summary --target "$TARGET" $PROFILE_FLAG 2>/dev/null | grep -q "demand_planning_control_tower"; then
+  DASHBOARD_ID=$(databricks bundle summary --target "$TARGET" $PROFILE_FLAG 2>/dev/null | grep -A2 "demand_planning_control_tower" | grep "id:" | awk '{print $2}' | tr -d '"' || echo "")
+fi
+
+# Get org ID from host
+ORG_ID=$(echo "$DATABRICKS_HOST" | grep -oE 'o=[0-9]+' | cut -d'=' -f2 || echo "")
+if [[ -z "$ORG_ID" ]]; then
+  # Try to extract from workspace URL pattern (adb-XXXXX.YY)
+  ORG_ID=$(echo "$DATABRICKS_HOST" | grep -oE 'adb-[0-9]+' | cut -d'-' -f2 || echo "")
+fi
+
+echo "# Databricks connection"
+echo "DATABRICKS_HOST=${DATABRICKS_HOST}"
+echo "DATABRICKS_TOKEN=<your-token>"
+echo ""
+echo "# Dashboard embed URL"
+if [[ -n "$DASHBOARD_ID" && -n "$ORG_ID" ]]; then
+  echo "DASHBOARD_EMBED_URL=${DATABRICKS_HOST}/embed/dashboardsv3/${DASHBOARD_ID}?o=${ORG_ID}"
+elif [[ -n "$DASHBOARD_ID" ]]; then
+  echo "DASHBOARD_EMBED_URL=${DATABRICKS_HOST}/embed/dashboardsv3/${DASHBOARD_ID}"
+else
+  echo "# DASHBOARD_EMBED_URL=<get from Databricks UI: Dashboard > Share > Embed>"
+fi
+
+echo ""
+echo "# Genie space ID"
+if [[ -f .genie_space_id ]]; then
+  echo "GENIE_SPACE_ID=$(cat .genie_space_id)"
+else
+  echo "# GENIE_SPACE_ID=<create Genie space in UI or run: python scripts/deploy_genie_space.py>"
+fi
+
+echo ""
+echo "To auto-update your .env file with these IDs:"
+echo "  ./scripts/update_env_ids.sh $TARGET"
+echo ""
+echo "=============================================="
 

@@ -73,15 +73,7 @@ resources:
               schema: "${var.schema}"
           environment_key: Default
 
-        - task_key: Dashboard_Refresh
-          depends_on:
-            - task_key: KPI_Metric_Refresh
-          dashboard_task:
-            subscription: {}
-            warehouse_id: "${var.warehouse_id}"
-            # Reference the bundle-deployed dashboard (falls back to var if bundle dashboard not deployed)
-            dashboard_id: ${resources.dashboards.demand_planning_control_tower.id}
-
+        # Notebook dashboards can run in parallel after KPI refresh
         - task_key: Demand_Planner_Dashboard
           depends_on:
             - task_key: KPI_Metric_Refresh
@@ -111,3 +103,14 @@ resources:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
           environment_key: Default
+
+        # AI/BI Dashboard refresh runs after all notebook dashboards complete
+        - task_key: Dashboard_Refresh
+          depends_on:
+            - task_key: Demand_Planner_Dashboard
+            - task_key: Logistics_Service_Dashboard
+            - task_key: Sustainability_Dashboard
+          dashboard_task:
+            subscription: {}
+            warehouse_id: "${var.warehouse_id}"
+            dashboard_id: ${resources.dashboards.demand_planning_control_tower.id}
