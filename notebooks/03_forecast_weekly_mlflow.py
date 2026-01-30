@@ -394,13 +394,18 @@ with mlflow.start_run(run_name="hierarchical_weekly_forecast") as run:
             float(row["mape_mean_across_series"]),
         )
 
+    # Use tempfile for serverless compute compatibility (avoid /tmp permission issues)
+    import tempfile
+    import os
+    tmp_dir = tempfile.gettempdir()
+    
     pdf_series = mape_by_series.toPandas()
-    artifact_path = "/tmp/mape_by_series.csv"
+    artifact_path = os.path.join(tmp_dir, "mape_by_series.csv")
     pdf_series.to_csv(artifact_path, index=False)
     mlflow.log_artifact(artifact_path, artifact_path="metrics")
 
     sample = spark.table(cfg.table("demand_forecast_future")).limit(200).toPandas()
-    sample_path = "/tmp/sample_forecast_future.csv"
+    sample_path = os.path.join(tmp_dir, "sample_forecast_future.csv")
     sample.to_csv(sample_path, index=False)
     mlflow.log_artifact(sample_path, artifact_path="outputs")
 
