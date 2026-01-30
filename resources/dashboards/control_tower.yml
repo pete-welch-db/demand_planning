@@ -11,8 +11,9 @@ resources:
   dashboards:
     demand_planning_control_tower:
       display_name: "Demand Planning Control Tower"
-      # Use workspace.file_path to reference the deployed bundle location
-      file_path: ${workspace.file_path}/dashboards/demand_planning_control_tower.lvdash.json
+      # Relative path from THIS file to the dashboard JSON
+      # Go up 2 levels (resources/dashboards/) then into dashboards/
+      file_path: ../../dashboards/demand_planning_control_tower.lvdash.json
       warehouse_id: ${var.warehouse_id}
       
       # Optional: embed credentials for scheduled refresh
