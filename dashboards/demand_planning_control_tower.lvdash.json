@@ -5,25 +5,24 @@
       "displayName": "KPI Snapshot (13w)",
       "queryLines": [
         "WITH kpi AS (",
-        "  SELECT",
-        "    MEASURE(`OTIF`) AS otif_rate,",
-        "    MEASURE(`Freight $/ton`) AS freight_cost_per_ton,",
-        "    MEASURE(`Premium freight %`) AS premium_freight_pct,",
-        "    MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton,",
-        "    MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit",
+        "  SELECT MEASURE(`OTIF`) AS otif_rate,",
+        "         MEASURE(`Freight $/ton`) AS freight_cost_per_ton,",
+        "         MEASURE(`Premium freight %`) AS premium_freight_pct,",
+        "         MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton,",
+        "         MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit",
         "  FROM welch.demand_planning_demo.mv_control_tower_kpis",
         "  WHERE week >= date_sub(current_date(), 91)",
-        "),",
+        "), ",
         "risk AS (",
         "  SELECT MEASURE(`Avg late-risk prob`) AS late_risk_prob",
         "  FROM welch.demand_planning_demo.mv_late_delivery_risk",
         "  WHERE order_date >= date_sub(current_date(), 91)",
-        "),",
+        "), ",
         "mape AS (",
         "  SELECT MEASURE(`MAPE`) AS mape",
         "  FROM welch.demand_planning_demo.mv_forecast_accuracy",
         "  WHERE week >= date_sub(current_date(), 91)",
-        ")",
+        ") ",
         "SELECT kpi.*, risk.late_risk_prob, mape.mape",
         "FROM kpi CROSS JOIN risk CROSS JOIN mape"
       ]
@@ -32,10 +31,9 @@
       "name": "otif_trend",
       "displayName": "OTIF Trend (Weekly)",
       "queryLines": [
-        "SELECT week, region,",
-        "  MEASURE(`OTIF`) AS otif_rate",
-        "FROM welch.demand_planning_demo.mv_control_tower_kpis",
-        "GROUP BY week, region",
+        "SELECT week, region, MEASURE(`OTIF`) AS otif_rate ",
+        "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "GROUP BY week, region ",
         "ORDER BY week, region"
       ]
     },
@@ -43,12 +41,12 @@
       "name": "sustainability_trend",
       "displayName": "Sustainability Metrics (Weekly)",
       "queryLines": [
-        "SELECT week,",
-        "  MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton,",
-        "  MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit,",
-        "  MEASURE(`Premium freight %`) AS premium_freight_pct",
-        "FROM welch.demand_planning_demo.mv_control_tower_kpis",
-        "GROUP BY week",
+        "SELECT week, ",
+        "       MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton, ",
+        "       MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit, ",
+        "       MEASURE(`Premium freight %`) AS premium_freight_pct ",
+        "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "GROUP BY week ",
         "ORDER BY week"
       ]
     },
@@ -56,12 +54,12 @@
       "name": "co2_by_region",
       "displayName": "CO2 by Region",
       "queryLines": [
-        "SELECT region,",
-        "  MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton,",
-        "  MEASURE(`Freight $/ton`) AS freight_cost_per_ton",
-        "FROM welch.demand_planning_demo.mv_control_tower_kpis",
-        "WHERE week >= date_sub(current_date(), 91)",
-        "GROUP BY region",
+        "SELECT region, ",
+        "       MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton, ",
+        "       MEASURE(`Freight $/ton`) AS freight_cost_per_ton ",
+        "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "GROUP BY region ",
         "ORDER BY co2_kg_per_ton DESC"
       ]
     },
@@ -69,11 +67,10 @@
       "name": "energy_by_plant",
       "displayName": "Energy by Plant",
       "queryLines": [
-        "SELECT plant_id,",
-        "  MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit",
-        "FROM welch.demand_planning_demo.mv_control_tower_kpis",
-        "WHERE week >= date_sub(current_date(), 91)",
-        "GROUP BY plant_id",
+        "SELECT plant_id, MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit ",
+        "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "GROUP BY plant_id ",
         "ORDER BY energy_kwh_per_unit DESC"
       ]
     },
@@ -81,14 +78,14 @@
       "name": "freight_lanes_13w",
       "displayName": "Freight Lanes (13w)",
       "queryLines": [
-        "SELECT plant_id, dc_id,",
-        "  MEASURE(`Freight $/ton`) AS freight_cost_per_ton,",
-        "  MEASURE(`Premium freight %`) AS premium_freight_pct,",
-        "  MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton",
-        "FROM welch.demand_planning_demo.mv_control_tower_kpis",
-        "WHERE week >= date_sub(current_date(), 91)",
-        "GROUP BY plant_id, dc_id",
-        "ORDER BY freight_cost_per_ton DESC",
+        "SELECT plant_id, dc_id, ",
+        "       MEASURE(`Freight $/ton`) AS freight_cost_per_ton, ",
+        "       MEASURE(`Premium freight %`) AS premium_freight_pct, ",
+        "       MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton ",
+        "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "GROUP BY plant_id, dc_id ",
+        "ORDER BY freight_cost_per_ton DESC ",
         "LIMIT 20"
       ]
     },
@@ -96,10 +93,9 @@
       "name": "mape_trend",
       "displayName": "MAPE Trend (Weekly)",
       "queryLines": [
-        "SELECT week,",
-        "  MEASURE(`MAPE`) AS mape",
-        "FROM welch.demand_planning_demo.mv_forecast_accuracy",
-        "GROUP BY week",
+        "SELECT week, MEASURE(`MAPE`) AS mape ",
+        "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
+        "GROUP BY week ",
         "ORDER BY week"
       ]
     },
@@ -107,11 +103,10 @@
       "name": "mape_by_family_region",
       "displayName": "MAPE by Family/Region",
       "queryLines": [
-        "SELECT sku_family, region,",
-        "  MEASURE(`MAPE`) AS mape",
-        "FROM welch.demand_planning_demo.mv_forecast_accuracy",
-        "WHERE week >= date_sub(current_date(), 91)",
-        "GROUP BY sku_family, region",
+        "SELECT sku_family, region, MEASURE(`MAPE`) AS mape ",
+        "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "GROUP BY sku_family, region ",
         "ORDER BY mape DESC"
       ]
     },
@@ -119,11 +114,11 @@
       "name": "late_risk_trend",
       "displayName": "Late Risk Trend (Weekly)",
       "queryLines": [
-        "SELECT order_week,",
-        "  MEASURE(`Avg late-risk prob`) AS avg_late_risk,",
-        "  MEASURE(`Observed late rate`) AS actual_late_rate",
-        "FROM welch.demand_planning_demo.mv_late_delivery_risk",
-        "GROUP BY order_week",
+        "SELECT order_week, ",
+        "       MEASURE(`Avg late-risk prob`) AS avg_late_risk, ",
+        "       MEASURE(`Observed late rate`) AS actual_late_rate ",
+        "FROM welch.demand_planning_demo.mv_late_delivery_risk ",
+        "GROUP BY order_week ",
         "ORDER BY order_week"
       ]
     },
@@ -131,12 +126,12 @@
       "name": "late_risk_by_region",
       "displayName": "Late Risk by Region",
       "queryLines": [
-        "SELECT customer_region,",
-        "  MEASURE(`Avg late-risk prob`) AS avg_late_risk,",
-        "  MEASURE(`Orders scored`) AS orders_count",
-        "FROM welch.demand_planning_demo.mv_late_delivery_risk",
-        "WHERE order_date >= date_sub(current_date(), 28)",
-        "GROUP BY customer_region",
+        "SELECT customer_region, ",
+        "       MEASURE(`Avg late-risk prob`) AS avg_late_risk, ",
+        "       MEASURE(`Orders scored`) AS orders_count ",
+        "FROM welch.demand_planning_demo.mv_late_delivery_risk ",
+        "WHERE order_date >= date_sub(current_date(), 28) ",
+        "GROUP BY customer_region ",
         "ORDER BY avg_late_risk DESC"
       ]
     },
@@ -144,11 +139,11 @@
       "name": "late_risk_hotspots",
       "displayName": "Late-Risk Hotspots (4w)",
       "queryLines": [
-        "SELECT customer_region, sku_family,",
-        "  MEASURE(`Avg late-risk prob`) AS avg_late_risk_prob",
-        "FROM welch.demand_planning_demo.mv_late_delivery_risk",
-        "WHERE order_date >= date_sub(current_date(), 28)",
-        "GROUP BY customer_region, sku_family",
+        "SELECT customer_region, sku_family, ",
+        "       MEASURE(`Avg late-risk prob`) AS avg_late_risk_prob ",
+        "FROM welch.demand_planning_demo.mv_late_delivery_risk ",
+        "WHERE order_date >= date_sub(current_date(), 28) ",
+        "GROUP BY customer_region, sku_family ",
         "ORDER BY avg_late_risk_prob DESC"
       ]
     },
@@ -156,12 +151,12 @@
       "name": "late_risk_orders",
       "displayName": "Highest Late-Risk Orders (30d)",
       "queryLines": [
-        "SELECT order_date, customer_region, channel, plant_id, dc_id,",
-        "  sku_family, units_ordered, days_to_request,",
-        "  late_risk_prob, late_risk_flag, actual_late",
-        "FROM welch.demand_planning_demo.order_late_risk_scored_ml",
-        "WHERE order_date >= date_sub(current_date(), 30)",
-        "ORDER BY late_risk_prob DESC",
+        "SELECT order_date, customer_region, channel, plant_id, dc_id, ",
+        "       sku_family, units_ordered, days_to_request, ",
+        "       late_risk_prob, late_risk_flag, actual_late ",
+        "FROM welch.demand_planning_demo.order_late_risk_scored_ml ",
+        "WHERE order_date >= date_sub(current_date(), 30) ",
+        "ORDER BY late_risk_prob DESC ",
         "LIMIT 50"
       ]
     },
@@ -169,12 +164,11 @@
       "name": "demand_vs_forecast",
       "displayName": "Demand vs Forecast (Weekly)",
       "queryLines": [
-        "SELECT a.week, a.sku_family, a.region,",
-        "  a.actual_units, f.forecast_units",
-        "FROM welch.demand_planning_demo.weekly_demand_actual a",
-        "LEFT JOIN welch.demand_planning_demo.demand_forecast f",
-        "  USING (week, sku_family, region)",
-        "WHERE a.week >= date_sub(current_date(), 180)",
+        "SELECT a.week, a.sku_family, a.region, a.actual_units, f.forecast_units ",
+        "FROM welch.demand_planning_demo.weekly_demand_actual a ",
+        "LEFT JOIN welch.demand_planning_demo.demand_forecast f ",
+        "  USING (week, sku_family, region) ",
+        "WHERE a.week >= date_sub(current_date(), 180) ",
         "ORDER BY a.week"
       ]
     },
@@ -182,10 +176,10 @@
       "name": "demand_by_region",
       "displayName": "Demand by Region (Weekly)",
       "queryLines": [
-        "SELECT week, region, SUM(actual_units) AS total_units",
-        "FROM welch.demand_planning_demo.weekly_demand_actual",
-        "WHERE week >= date_sub(current_date(), 91)",
-        "GROUP BY week, region",
+        "SELECT week, region, SUM(actual_units) AS total_units ",
+        "FROM welch.demand_planning_demo.weekly_demand_actual ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "GROUP BY week, region ",
         "ORDER BY week, region"
       ]
     },
@@ -193,13 +187,13 @@
       "name": "kpi_by_region",
       "displayName": "KPIs by Region (13w)",
       "queryLines": [
-        "SELECT region,",
-        "  MEASURE(`OTIF`) AS otif_rate,",
-        "  MEASURE(`Freight $/ton`) AS freight_cost_per_ton,",
-        "  MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton",
-        "FROM welch.demand_planning_demo.mv_control_tower_kpis",
-        "WHERE week >= date_sub(current_date(), 91)",
-        "GROUP BY region",
+        "SELECT region, ",
+        "       MEASURE(`OTIF`) AS otif_rate, ",
+        "       MEASURE(`Freight $/ton`) AS freight_cost_per_ton, ",
+        "       MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton ",
+        "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "GROUP BY region ",
         "ORDER BY region"
       ]
     },
@@ -207,14 +201,14 @@
       "name": "premium_freight_by_lane",
       "displayName": "Premium Freight by Lane",
       "queryLines": [
-        "SELECT CONCAT(plant_id, ' → ', dc_id) AS lane,",
-        "  MEASURE(`Premium freight %`) AS premium_freight_pct,",
-        "  MEASURE(`CO2 kg/ton`) AS co2_impact",
-        "FROM welch.demand_planning_demo.mv_control_tower_kpis",
-        "WHERE week >= date_sub(current_date(), 91)",
-        "GROUP BY plant_id, dc_id",
-        "HAVING premium_freight_pct > 0.05",
-        "ORDER BY premium_freight_pct DESC",
+        "SELECT CONCAT(plant_id, ' → ', dc_id) AS lane, ",
+        "       MEASURE(`Premium freight %`) AS premium_freight_pct, ",
+        "       MEASURE(`CO2 kg/ton`) AS co2_impact ",
+        "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "GROUP BY plant_id, dc_id ",
+        "HAVING MEASURE(`Premium freight %`) > 0.05 ",
+        "ORDER BY premium_freight_pct DESC ",
         "LIMIT 15"
       ]
     },
@@ -222,12 +216,12 @@
       "name": "network_locations",
       "displayName": "ADS Network Locations",
       "queryLines": [
-        "SELECT 'Plant' AS location_type, plant_id AS location_id, plant_name AS location_name,",
-        "  plant_city AS city, plant_state AS state, plant_lat AS lat, plant_lon AS lon, plant_region AS region",
-        "FROM welch.demand_planning_demo.silver_plant_locations",
-        "UNION ALL",
-        "SELECT 'DC' AS location_type, dc_id AS location_id, dc_name AS location_name,",
-        "  dc_city AS city, dc_state AS state, dc_lat AS lat, dc_lon AS lon, dc_region AS region",
+        "SELECT 'Plant' AS location_type, plant_id AS location_id, plant_name AS location_name, ",
+        "       plant_city AS city, plant_state AS state, plant_lat AS lat, plant_lon AS lon, plant_region AS region ",
+        "FROM welch.demand_planning_demo.silver_plant_locations ",
+        "UNION ALL ",
+        "SELECT 'DC' AS location_type, dc_id AS location_id, dc_name AS location_name, ",
+        "       dc_city AS city, dc_state AS state, dc_lat AS lat, dc_lon AS lon, dc_region AS region ",
         "FROM welch.demand_planning_demo.silver_dc_locations"
       ]
     },
@@ -235,22 +229,22 @@
       "name": "lanes_with_coords",
       "displayName": "Freight Lanes with Coordinates",
       "queryLines": [
-        "WITH lanes AS (",
-        "  SELECT plant_id, dc_id,",
-        "    MEASURE(`Freight $/ton`) AS freight_cost,",
-        "    MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton",
-        "  FROM welch.demand_planning_demo.mv_control_tower_kpis",
-        "  WHERE week >= date_sub(current_date(), 91)",
-        "  GROUP BY plant_id, dc_id",
-        ")",
-        "SELECT l.plant_id, l.dc_id,",
-        "  p.plant_name, p.plant_lat, p.plant_lon,",
-        "  d.dc_name, d.dc_lat, d.dc_lon,",
-        "  l.freight_cost, l.co2_kg_per_ton",
-        "FROM lanes l",
-        "JOIN welch.demand_planning_demo.silver_plant_locations p ON l.plant_id = p.plant_id",
-        "JOIN welch.demand_planning_demo.silver_dc_locations d ON l.dc_id = d.dc_id",
-        "ORDER BY freight_cost DESC",
+        "WITH lanes AS ( ",
+        "  SELECT plant_id, dc_id, ",
+        "         MEASURE(`Freight $/ton`) AS freight_cost, ",
+        "         MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton ",
+        "  FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "  WHERE week >= date_sub(current_date(), 91) ",
+        "  GROUP BY plant_id, dc_id ",
+        ") ",
+        "SELECT l.plant_id, l.dc_id, ",
+        "       p.plant_name, p.plant_lat, p.plant_lon, ",
+        "       d.dc_name, d.dc_lat, d.dc_lon, ",
+        "       l.freight_cost, l.co2_kg_per_ton ",
+        "FROM lanes l ",
+        "JOIN welch.demand_planning_demo.silver_plant_locations p ON l.plant_id = p.plant_id ",
+        "JOIN welch.demand_planning_demo.silver_dc_locations d ON l.dc_id = d.dc_id ",
+        "ORDER BY freight_cost DESC ",
         "LIMIT 20"
       ]
     }
