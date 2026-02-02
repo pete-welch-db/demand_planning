@@ -394,20 +394,26 @@ with mlflow.start_run(run_name="hierarchical_weekly_forecast") as run:
             float(row["mape_mean_across_series"]),
         )
 
-    # Use tempfile for serverless compute compatibility (avoid /tmp permission issues)
-    import tempfile
-    import os
-    tmp_dir = tempfile.gettempdir()
-    
+    # Log MAPE by series as a table (avoids temp file permission issues in serverless)
     pdf_series = mape_by_series.toPandas()
-    artifact_path = os.path.join(tmp_dir, "mape_by_series.csv")
-    pdf_series.to_csv(artifact_path, index=False)
-    mlflow.log_artifact(artifact_path, artifact_path="metrics")
+    try:
+        mlflow.log_table(pdf_series, artifact_file="metrics/mape_by_series.json")
+    except Exception as e:
+        print(f"  Warning: Could not log MAPE table artifact: {e}")
+        # Fallback: log summary metrics instead
+        for _, row in pdf_series.head(20).iterrows():
+            try:
+                key = f"mape_{row.get('sku_family', 'unk')}_{row.get('region', 'unk')}"
+                mlflow.log_metric(key, float(row.get('mape', 0)))
+            except Exception:
+                pass
 
+    # Log sample forecast as a table
     sample = spark.table(cfg.table("demand_forecast_future")).limit(200).toPandas()
-    sample_path = os.path.join(tmp_dir, "sample_forecast_future.csv")
-    sample.to_csv(sample_path, index=False)
-    mlflow.log_artifact(sample_path, artifact_path="outputs")
+    try:
+        mlflow.log_table(sample, artifact_file="outputs/sample_forecast_future.json")
+    except Exception as e:
+        print(f"  Warning: Could not log sample forecast artifact: {e}")
 
     # Register a reusable "forecasting recipe" model in UC Model Registry.
     # We don't register 25k per-SKU models; we register the standardized pattern as an MLflow pyfunc.
