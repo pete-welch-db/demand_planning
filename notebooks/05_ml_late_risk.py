@@ -2,11 +2,10 @@
 # MAGIC %md
 # MAGIC ## 5) ML in the loop — Late Delivery Risk
 # MAGIC
-# MAGIC Trains a Spark ML late-delivery risk model from `silver_erp_orders` (DLT output),
+# MAGIC Trains a late-delivery risk model from `silver_erp_orders` (DLT output),
 # MAGIC registers it in MLflow/Unity Catalog, and writes `order_late_risk_scored_ml`.
 # MAGIC
-# MAGIC **Note**: This notebook uses Spark ML Pipeline (native Databricks) and requires
-# MAGIC a cluster with ML Runtime (not serverless).
+# MAGIC **Note**: Uses scikit-learn for serverless compute compatibility.
 
 # COMMAND ----------
 
@@ -19,6 +18,7 @@
 # MAGIC   "numpy==1.26.4" \
 # MAGIC   "pandas==2.2.3" \
 # MAGIC   "mlflow[databricks]==2.14.2" \
+# MAGIC   "scikit-learn==1.5.2" \
 # MAGIC   "matplotlib==3.9.2"
 
 # COMMAND ----------
@@ -32,15 +32,19 @@ dbutils.library.restartPython()
 # COMMAND ----------
 
 import mlflow
-import mlflow.spark
+import mlflow.sklearn
+import mlflow.pyfunc
+from mlflow.models.signature import infer_signature
 
+import pandas as pd
+import numpy as np
 from pyspark.sql import functions as F
-from pyspark.ml.functions import vector_to_array
 
-from pyspark.ml import Pipeline
-from pyspark.ml.classification import LogisticRegression
-from pyspark.ml.evaluation import BinaryClassificationEvaluator
-from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline as SkPipeline
+from sklearn.metrics import roc_auc_score, accuracy_score
 
 # COMMAND ----------
 
@@ -53,7 +57,7 @@ TRAIN_LOOKBACK_DAYS = int(dbutils.widgets.get("train_lookback_days"))
 TEST_DAYS = int(dbutils.widgets.get("test_days"))
 MODEL_NAME = dbutils.widgets.get("model_name")
 
-print(f"Model: {MODEL_NAME}")
+print(f"Model name: {MODEL_NAME}")
 print(f"Train lookback: {TRAIN_LOOKBACK_DAYS} days, Test: {TEST_DAYS} days")
 
 # COMMAND ----------
@@ -115,22 +119,26 @@ feat = (
     .withColumn("month", F.month("order_date").cast("double"))
 )
 
-train = feat.where(F.col("order_date") < F.lit(cutoff_test))
-test = feat.where(F.col("order_date") >= F.lit(cutoff_test))
+train_spark = feat.where(F.col("order_date") < F.lit(cutoff_test))
+test_spark = feat.where(F.col("order_date") >= F.lit(cutoff_test))
 
-print(f"Train rows: {train.count():,}")
-print(f"Test rows: {test.count():,}")
+print(f"Train rows: {train_spark.count():,}")
+print(f"Test rows: {test_spark.count():,}")
 
-display(train.select("order_date", "is_late").groupBy("is_late").count())
+display(train_spark.select("order_date", "is_late").groupBy("is_late").count())
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 5.2 Train Spark ML Pipeline + register in MLflow
+# MAGIC ### 5.2 Convert to Pandas and train scikit-learn model
 
 # COMMAND ----------
 
-# Feature columns
+# Convert to pandas for sklearn
+train_pdf = train_spark.toPandas()
+test_pdf = test_spark.toPandas()
+
+# Define feature columns
 cat_cols = ["customer_region", "channel", "plant_id", "dc_id", "sku_family"]
 num_cols = [
     "units_ordered",
@@ -144,145 +152,175 @@ num_cols = [
     "avg_temp_c",
 ]
 
-# Fill nulls consistently
-filled_train = train
-filled_test = test
+# Fill nulls
 for c in num_cols:
-    filled_train = filled_train.withColumn(c, F.coalesce(F.col(c).cast("double"), F.lit(0.0)))
-    filled_test = filled_test.withColumn(c, F.coalesce(F.col(c).cast("double"), F.lit(0.0)))
+    train_pdf[c] = pd.to_numeric(train_pdf[c], errors="coerce").fillna(0.0)
+    test_pdf[c] = pd.to_numeric(test_pdf[c], errors="coerce").fillna(0.0)
 for c in cat_cols:
-    filled_train = filled_train.withColumn(c, F.coalesce(F.col(c).cast("string"), F.lit("unknown")))
-    filled_test = filled_test.withColumn(c, F.coalesce(F.col(c).cast("string"), F.lit("unknown")))
+    train_pdf[c] = train_pdf[c].fillna("unknown").astype(str)
+    test_pdf[c] = test_pdf[c].fillna("unknown").astype(str)
 
-# Build Spark ML Pipeline
-indexers = [StringIndexer(inputCol=c, outputCol=f"{c}__idx", handleInvalid="keep") for c in cat_cols]
-encoder = OneHotEncoder(
-    inputCols=[f"{c}__idx" for c in cat_cols],
-    outputCols=[f"{c}__ohe" for c in cat_cols],
-    handleInvalid="keep",
-)
-assembler = VectorAssembler(
-    inputCols=[f"{c}__ohe" for c in cat_cols] + num_cols,
-    outputCol="features",
-    handleInvalid="keep",
-)
-lr = LogisticRegression(featuresCol="features", labelCol="is_late", maxIter=50, regParam=0.05, elasticNetParam=0.0)
-model_pipeline = Pipeline(stages=[*indexers, encoder, assembler, lr])
+# Prepare X and y
+X_train = train_pdf[cat_cols + num_cols]
+y_train = train_pdf["is_late"].astype(int)
+X_test = test_pdf[cat_cols + num_cols]
+y_test = test_pdf["is_late"].astype(int)
+
+print(f"X_train shape: {X_train.shape}, y_train late rate: {y_train.mean():.3f}")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 5.3 MLflow experiment + model registration
+# MAGIC ### 5.3 Build sklearn pipeline and train
+
+# COMMAND ----------
+
+# Sklearn pipeline: OneHotEncoder for categoricals, StandardScaler for numerics
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), cat_cols),
+        ("num", StandardScaler(), num_cols),
+    ]
+)
+
+pipeline = SkPipeline([
+    ("preprocessor", preprocessor),
+    ("classifier", LogisticRegression(max_iter=200, C=1.0, solver="lbfgs", random_state=42)),
+])
+
+# Train
+pipeline.fit(X_train, y_train)
+
+# Evaluate
+y_pred_proba = pipeline.predict_proba(X_test)[:, 1]
+y_pred = pipeline.predict(X_test)
+
+auc = roc_auc_score(y_test, y_pred_proba)
+acc = accuracy_score(y_test, y_pred)
+base_rate = y_train.mean()
+
+print(f"Test AUC: {auc:.4f}")
+print(f"Test Accuracy: {acc:.4f}")
+print(f"Train late rate (baseline): {base_rate:.4f}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### 5.4 Log to MLflow and register model in Unity Catalog
 
 # COMMAND ----------
 
 experiment_name = f"/Shared/demand_planning_demo_{cfg.schema}"
 mlflow.set_experiment(experiment_name)
 
-with mlflow.start_run(run_name="late_delivery_risk_spark_ml") as run:
-    # Train
-    fitted = model_pipeline.fit(filled_train)
-
-    # Score test set
-    scored_test = fitted.transform(filled_test)
-    y_prob = vector_to_array(F.col("probability")).getItem(1)
-    scored_test = scored_test.withColumn("p_late", y_prob)
-
-    # Evaluate
-    evaluator = BinaryClassificationEvaluator(labelCol="is_late", rawPredictionCol="rawPrediction", metricName="areaUnderROC")
-    auc = float(evaluator.evaluate(scored_test))
-
-    acc = float(
-        scored_test.select((F.col("prediction") == F.col("is_late")).cast("double").alias("ok"))
-        .agg(F.avg("ok").alias("acc"))
-        .collect()[0]["acc"]
-    )
-
-    base_rate = float(filled_train.agg(F.avg(F.col("is_late").cast("double")).alias("br")).collect()[0]["br"])
-
+with mlflow.start_run(run_name="late_delivery_risk_sklearn") as run:
     # Log parameters
     mlflow.log_params({
         "catalog": cfg.catalog,
         "schema": cfg.schema,
         "train_lookback_days": TRAIN_LOOKBACK_DAYS,
         "test_days": TEST_DAYS,
-        "model_type": "spark_logistic_regression_pipeline",
-        "reg_param": 0.05,
-        "max_iter": 50,
+        "model_type": "sklearn_logistic_regression",
+        "max_iter": 200,
+        "C": 1.0,
+        "num_features": len(num_cols),
+        "cat_features": len(cat_cols),
     })
-
-    # Log metrics
-    mlflow.log_metrics({"auc": auc, "accuracy": acc, "train_late_rate": base_rate})
-
-    # Log model artifacts
-    try:
-        # Log MAPE by late status as table
-        late_stats = scored_test.groupBy("is_late").agg(
-            F.count("*").alias("count"),
-            F.avg("p_late").alias("avg_prob")
-        ).toPandas()
-        mlflow.log_table(late_stats, artifact_file="metrics/late_stats.json")
-    except Exception as e:
-        print(f"Warning: Could not log table artifact: {e}")
-
-    # Log and register model in Unity Catalog
-    mlflow.spark.log_model(fitted, artifact_path="model")
-    mv = mlflow.register_model(f"runs:/{run.info.run_id}/model", MODEL_NAME)
-    mlflow.set_tag("registered_model_name", MODEL_NAME)
-    mlflow.set_tag("registered_model_version", mv.version)
     
-    print(f"Registered Spark ML model: {mv.name} version: {mv.version}")
-    print(f"Test AUC: {auc:.4f}, Accuracy: {acc:.4f}, Train late rate: {base_rate:.4f}")
+    # Log metrics
+    mlflow.log_metrics({
+        "auc": auc,
+        "accuracy": acc,
+        "train_late_rate": base_rate,
+    })
+    
+    # Create input example and signature
+    input_example = X_test.head(5)
+    signature = infer_signature(X_test, y_pred_proba)
+    
+    # Log model
+    mlflow.sklearn.log_model(
+        pipeline,
+        artifact_path="model",
+        input_example=input_example,
+        signature=signature,
+        pip_requirements=[
+            "numpy==1.26.4",
+            "pandas==2.2.3",
+            "scikit-learn==1.5.2",
+        ],
+    )
+    
+    # Register model in Unity Catalog
+    try:
+        mv = mlflow.register_model(f"runs:/{run.info.run_id}/model", MODEL_NAME)
+        print(f"Registered model: {mv.name} version: {mv.version}")
+        mlflow.set_tag("registered_model_name", MODEL_NAME)
+        mlflow.set_tag("registered_model_version", mv.version)
+    except Exception as e:
+        print(f"Warning: Could not register model to UC: {e}")
+        mlflow.set_tag("registration_error", str(e)[:500])
+
+print(f"MLflow run ID: {run.info.run_id}")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 5.4 Score recent orders into Gold table
+# MAGIC ### 5.5 Score recent orders into Gold table
 
 # COMMAND ----------
 
+# Score all recent orders (last 91 days)
 recent_cutoff = spark.sql("SELECT date_sub(current_date(), 91) AS d").collect()[0]["d"]
-to_score = feat.where(F.col("order_date") >= F.lit(recent_cutoff))
+to_score_spark = feat.where(F.col("order_date") >= F.lit(recent_cutoff))
 
-# Fill nulls
-to_score_filled = to_score
+# Convert to pandas
+to_score_pdf = to_score_spark.toPandas()
+
+# Prepare features (same preprocessing as training)
 for c in num_cols:
-    to_score_filled = to_score_filled.withColumn(c, F.coalesce(F.col(c).cast("double"), F.lit(0.0)))
+    to_score_pdf[c] = pd.to_numeric(to_score_pdf[c], errors="coerce").fillna(0.0)
 for c in cat_cols:
-    to_score_filled = to_score_filled.withColumn(c, F.coalesce(F.col(c).cast("string"), F.lit("unknown")))
+    to_score_pdf[c] = to_score_pdf[c].fillna("unknown").astype(str)
+
+X_score = to_score_pdf[cat_cols + num_cols]
 
 # Score
-scored = (
-    fitted.transform(to_score_filled)
-    .withColumn("late_risk_prob", vector_to_array(F.col("probability")).getItem(1))
-    .withColumn("late_risk_flag", (F.col("late_risk_prob") >= F.lit(0.5)).cast("int"))
-    .withColumn("actual_late", F.col("is_late").cast("int"))
-    .select(
-        "order_id",
-        "order_date",
-        "customer_region",
-        "channel",
-        "dc_id",
-        "plant_id",
-        "sku_family",
-        "units_ordered",
-        "days_to_request",
-        "late_risk_prob",
-        "late_risk_flag",
-        "actual_late",
-    )
-)
+to_score_pdf["late_risk_prob"] = pipeline.predict_proba(X_score)[:, 1]
+to_score_pdf["late_risk_flag"] = (to_score_pdf["late_risk_prob"] >= 0.5).astype(int)
+to_score_pdf["actual_late"] = to_score_pdf["is_late"].astype(int)
 
-print(f"Scored {scored.count():,} orders")
+# Select columns for output
+output_cols = [
+    "order_id",
+    "order_date",
+    "customer_region",
+    "channel",
+    "dc_id",
+    "plant_id",
+    "sku_family",
+    "units_ordered",
+    "days_to_request",
+    "late_risk_prob",
+    "late_risk_flag",
+    "actual_late",
+]
+scored_pdf = to_score_pdf[output_cols]
+
+print(f"Scored {len(scored_pdf):,} orders")
+print(f"High risk (prob >= 0.5): {(scored_pdf['late_risk_prob'] >= 0.5).sum():,}")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 5.5 Write scored table to Delta
+# MAGIC ### 5.6 Write scored table to Delta
 
 # COMMAND ----------
 
 SCORED_TABLE_NAME = "order_late_risk_scored_ml"
+
+# Convert back to Spark and write
+scored_spark = spark.createDataFrame(scored_pdf)
 
 # Drop existing object if it exists (table/view)
 try:
@@ -295,11 +333,11 @@ except Exception:
     pass
 
 # Write as Delta table
-(scored.write
+(scored_spark.write
     .format("delta")
     .mode("overwrite")
     .option("overwriteSchema", "true")
     .saveAsTable(cfg.table(SCORED_TABLE_NAME)))
 
-print(f"Wrote to {cfg.table(SCORED_TABLE_NAME)}")
+print(f"Wrote {scored_spark.count():,} rows to {cfg.table(SCORED_TABLE_NAME)}")
 display(spark.table(cfg.table(SCORED_TABLE_NAME)).orderBy(F.desc("late_risk_prob")).limit(20))

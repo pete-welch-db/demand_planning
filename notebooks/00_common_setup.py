@@ -79,8 +79,14 @@ if cfg.catalog.lower() != "hive_metastore":
         spark.sql(f"CREATE CATALOG IF NOT EXISTS `{cfg.catalog}`")
     except Exception as e:
         print("WARN: could not create catalog (may already exist or insufficient privileges):", e)
-
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS {cfg.fq_schema}")
+    
+    # CRITICAL: Switch to the Unity Catalog context first
+    spark.sql(f"USE CATALOG `{cfg.catalog}`")
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{cfg.schema}`")
+    spark.sql(f"USE SCHEMA `{cfg.schema}`")
+    print(f"Using: {cfg.catalog}.{cfg.schema}")
+else:
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {cfg.fq_schema}")
 
 # COMMAND ----------
 # MAGIC %md

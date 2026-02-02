@@ -8,24 +8,11 @@ resources:
       queue:
         enabled: true
 
-      # Use serverless compute for most notebook tasks
+      # Use serverless compute for all notebook tasks
       environments:
         - environment_key: Default
           spec:
             client: "1"
-
-      # Job cluster with ML Runtime for Spark ML tasks (single-node for cost efficiency)
-      job_clusters:
-        - job_cluster_key: ml_cluster
-          new_cluster:
-            spark_version: "14.3.x-scala2.12"
-            num_workers: 0
-            node_type_id: "Standard_DS3_v2"
-            spark_conf:
-              spark.databricks.cluster.profile: "singleNode"
-              spark.master: "local[*, 4]"
-            custom_tags:
-              ResourceClass: "SingleNode"
 
       tasks:
         - task_key: UC_Setup
@@ -63,11 +50,9 @@ resources:
               schema: "${var.schema}"
           environment_key: Default
 
-        # ML notebook uses classic cluster with ML Runtime (Spark ML requires it)
         - task_key: ML_Late_Risk
           depends_on:
             - task_key: Weekly_Forecast_ML
-          job_cluster_key: ml_cluster
           notebook_task:
             notebook_path: ${workspace.file_path}/notebooks/05_ml_late_risk
             base_parameters:
@@ -76,6 +61,7 @@ resources:
               model_name: "${var.late_risk_model_name}"
               train_lookback_days: "540"
               test_days: "90"
+          environment_key: Default
 
         - task_key: KPI_Metric_Refresh
           depends_on:
