@@ -2,19 +2,19 @@
 # MAGIC %md
 # MAGIC ## 5) ML in the loop — Late Delivery Risk
 # MAGIC
-# MAGIC Trains a simple late-delivery risk model from `silver_erp_orders` (DLT output),
-# MAGIC registers it in MLflow, and writes `order_late_risk_scored_ml` (to avoid colliding with the DLT-owned `order_late_risk_scored` table).
+# MAGIC Trains a Spark ML late-delivery risk model from `silver_erp_orders` (DLT output),
+# MAGIC registers it in MLflow/Unity Catalog, and writes `order_late_risk_scored_ml`.
+# MAGIC
+# MAGIC **Note**: This notebook uses Spark ML Pipeline (native Databricks) and requires
+# MAGIC a cluster with ML Runtime (not serverless).
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Dependency bootstrap (install before imports)
-# MAGIC
-# MAGIC Install Python libs first, restart Python, then load common setup so `cfg` is available.
+# MAGIC ### Dependency bootstrap
 
 # COMMAND ----------
 
-# DBTITLE 1,Cell 3
 # MAGIC %pip install -q \
 # MAGIC   "numpy==1.26.4" \
 # MAGIC   "pandas==2.2.3" \
@@ -53,10 +53,13 @@ TRAIN_LOOKBACK_DAYS = int(dbutils.widgets.get("train_lookback_days"))
 TEST_DAYS = int(dbutils.widgets.get("test_days"))
 MODEL_NAME = dbutils.widgets.get("model_name")
 
+print(f"Model: {MODEL_NAME}")
+print(f"Train lookback: {TRAIN_LOOKBACK_DAYS} days, Test: {TEST_DAYS} days")
+
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 5.1 Load Silver orders (from DLT pipeline) + build labeled dataset
+# MAGIC ### 5.1 Load Silver orders + build labeled dataset
 
 # COMMAND ----------
 
@@ -115,16 +118,19 @@ feat = (
 train = feat.where(F.col("order_date") < F.lit(cutoff_test))
 test = feat.where(F.col("order_date") >= F.lit(cutoff_test))
 
+print(f"Train rows: {train.count():,}")
+print(f"Test rows: {test.count():,}")
+
 display(train.select("order_date", "is_late").groupBy("is_late").count())
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 5.2 Train a simple baseline model (Spark Logistic Regression) + register in MLflow
+# MAGIC ### 5.2 Train Spark ML Pipeline + register in MLflow
 
 # COMMAND ----------
 
-# Native-first: Spark ML Pipeline (scales; no toPandas)
+# Feature columns
 cat_cols = ["customer_region", "channel", "plant_id", "dc_id", "sku_family"]
 num_cols = [
     "units_ordered",
@@ -148,6 +154,7 @@ for c in cat_cols:
     filled_train = filled_train.withColumn(c, F.coalesce(F.col(c).cast("string"), F.lit("unknown")))
     filled_test = filled_test.withColumn(c, F.coalesce(F.col(c).cast("string"), F.lit("unknown")))
 
+# Build Spark ML Pipeline
 indexers = [StringIndexer(inputCol=c, outputCol=f"{c}__idx", handleInvalid="keep") for c in cat_cols]
 encoder = OneHotEncoder(
     inputCols=[f"{c}__idx" for c in cat_cols],
@@ -162,16 +169,26 @@ assembler = VectorAssembler(
 lr = LogisticRegression(featuresCol="features", labelCol="is_late", maxIter=50, regParam=0.05, elasticNetParam=0.0)
 model_pipeline = Pipeline(stages=[*indexers, encoder, assembler, lr])
 
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### 5.3 MLflow experiment + model registration
+
+# COMMAND ----------
+
 experiment_name = f"/Shared/demand_planning_demo_{cfg.schema}"
 mlflow.set_experiment(experiment_name)
 
-with mlflow.start_run(run_name="late_delivery_risk_logreg_spark") as run:
+with mlflow.start_run(run_name="late_delivery_risk_spark_ml") as run:
+    # Train
     fitted = model_pipeline.fit(filled_train)
 
+    # Score test set
     scored_test = fitted.transform(filled_test)
     y_prob = vector_to_array(F.col("probability")).getItem(1)
     scored_test = scored_test.withColumn("p_late", y_prob)
 
+    # Evaluate
     evaluator = BinaryClassificationEvaluator(labelCol="is_late", rawPredictionCol="rawPrediction", metricName="areaUnderROC")
     auc = float(evaluator.evaluate(scored_test))
 
@@ -183,101 +200,58 @@ with mlflow.start_run(run_name="late_delivery_risk_logreg_spark") as run:
 
     base_rate = float(filled_train.agg(F.avg(F.col("is_late").cast("double")).alias("br")).collect()[0]["br"])
 
-    mlflow.log_params(
-        {
-            "catalog": cfg.catalog,
-            "schema": cfg.schema,
-            "train_lookback_days": TRAIN_LOOKBACK_DAYS,
-            "test_days": TEST_DAYS,
-            "model_type": "spark_logistic_regression_pipeline",
-            "reg_param": 0.05,
-            "max_iter": 50,
-        }
-    )
-    mlflow.log_metrics({"auc": auc, "accuracy@0.5": acc, "train_late_rate": base_rate})
+    # Log parameters
+    mlflow.log_params({
+        "catalog": cfg.catalog,
+        "schema": cfg.schema,
+        "train_lookback_days": TRAIN_LOOKBACK_DAYS,
+        "test_days": TEST_DAYS,
+        "model_type": "spark_logistic_regression_pipeline",
+        "reg_param": 0.05,
+        "max_iter": 50,
+    })
 
-    # Log + register model in UC Model Registry.
-    # In some runtimes (notably Spark Connect / serverless), Spark model logging can fail due to artifact FS restrictions.
-    # We keep the job resilient by falling back to a lightweight pyfunc heuristic model if needed.
+    # Log metrics
+    mlflow.log_metrics({"auc": auc, "accuracy": acc, "train_late_rate": base_rate})
+
+    # Log model artifacts
     try:
-        mlflow.spark.log_model(fitted, artifact_path="model_spark")
-        mv = mlflow.register_model(f"runs:/{run.info.run_id}/model_spark", MODEL_NAME)
-        mlflow.set_tag("registered_model_name", MODEL_NAME)
-        mlflow.set_tag("registered_model_flavor", "spark")
-        print(f"Registered Spark model: {mv.name} version: {mv.version}")
+        # Log MAPE by late status as table
+        late_stats = scored_test.groupBy("is_late").agg(
+            F.count("*").alias("count"),
+            F.avg("p_late").alias("avg_prob")
+        ).toPandas()
+        mlflow.log_table(late_stats, artifact_file="metrics/late_stats.json")
     except Exception as e:
-        mlflow.set_tag("registered_model_name", MODEL_NAME)
-        mlflow.set_tag("registered_model_flavor", "pyfunc_heuristic_fallback")
-        mlflow.set_tag("spark_model_log_error", (str(e)[:500] if e else "unknown"))
+        print(f"Warning: Could not log table artifact: {e}")
 
-        import mlflow.pyfunc
-        from mlflow.models.signature import infer_signature
-        import pandas as pd
-        import numpy as np
-
-        class LateRiskHeuristicPyfunc(mlflow.pyfunc.PythonModel):
-            def predict(self, context, model_input):
-                df = model_input.copy()
-                for c, default in [
-                    ("days_to_request", 999.0),
-                    ("channel", "unknown"),
-                    ("units_ordered", 0.0),
-                    ("woy", 0.0),
-                ]:
-                    if c not in df.columns:
-                        df[c] = default
-
-                days = pd.to_numeric(df["days_to_request"], errors="coerce").fillna(999.0).astype(float)
-                units = pd.to_numeric(df["units_ordered"], errors="coerce").fillna(0.0).astype(float)
-                woy = pd.to_numeric(df["woy"], errors="coerce").fillna(0.0).astype(float)
-                ch = df["channel"].astype(str)
-
-                winter = ((woy >= 48) | (woy <= 8)).astype(float)
-                is_contractor_dot = ch.isin(["contractor", "DOT"]).astype(float)
-                short_lead = (days <= 5).astype(float)
-                big_units = (units >= 50).astype(float)
-
-                prob = 0.12 + 0.18 * short_lead + 0.08 * is_contractor_dot + 0.10 * big_units + 0.06 * winter
-                prob = np.clip(prob, 0.01, 0.99)
-                return pd.DataFrame({"late_risk_prob": prob.astype(float)})
-
-        input_example = pd.DataFrame(
-            [{"days_to_request": 7, "channel": "stocking", "units_ordered": 12, "woy": 10}]
-        )
-        signature = infer_signature(input_example, LateRiskHeuristicPyfunc().predict(None, input_example))
-
-        mlflow.pyfunc.log_model(
-            artifact_path="model_pyfunc",
-            python_model=LateRiskHeuristicPyfunc(),
-            input_example=input_example,
-            signature=signature,
-            pip_requirements=[
-                "numpy==1.26.4",
-                "pandas==2.2.3",
-                "mlflow[databricks]==2.14.2",
-            ],
-        )
-        mv = mlflow.register_model(f"runs:/{run.info.run_id}/model_pyfunc", MODEL_NAME)
-        print(f"Registered pyfunc fallback model: {mv.name} version: {mv.version}")
+    # Log and register model in Unity Catalog
+    mlflow.spark.log_model(fitted, artifact_path="model")
+    mv = mlflow.register_model(f"runs:/{run.info.run_id}/model", MODEL_NAME)
+    mlflow.set_tag("registered_model_name", MODEL_NAME)
+    mlflow.set_tag("registered_model_version", mv.version)
+    
+    print(f"Registered Spark ML model: {mv.name} version: {mv.version}")
     print(f"Test AUC: {auc:.4f}, Accuracy: {acc:.4f}, Train late rate: {base_rate:.4f}")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 5.3 Score into a Gold table used by the app
+# MAGIC ### 5.4 Score recent orders into Gold table
 
 # COMMAND ----------
 
-# DBTITLE 1,Cell 13
 recent_cutoff = spark.sql("SELECT date_sub(current_date(), 91) AS d").collect()[0]["d"]
 to_score = feat.where(F.col("order_date") >= F.lit(recent_cutoff))
 
+# Fill nulls
 to_score_filled = to_score
 for c in num_cols:
     to_score_filled = to_score_filled.withColumn(c, F.coalesce(F.col(c).cast("double"), F.lit(0.0)))
 for c in cat_cols:
     to_score_filled = to_score_filled.withColumn(c, F.coalesce(F.col(c).cast("string"), F.lit("unknown")))
 
+# Score
 scored = (
     fitted.transform(to_score_filled)
     .withColumn("late_risk_prob", vector_to_array(F.col("probability")).getItem(1))
@@ -299,9 +273,18 @@ scored = (
     )
 )
 
+print(f"Scored {scored.count():,} orders")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### 5.5 Write scored table to Delta
+
+# COMMAND ----------
+
 SCORED_TABLE_NAME = "order_late_risk_scored_ml"
 
-# Drop existing object if it exists (table/view); avoid collisions with the DLT-owned `order_late_risk_scored`.
+# Drop existing object if it exists (table/view)
 try:
     spark.sql(f"DROP VIEW IF EXISTS {cfg.table(SCORED_TABLE_NAME)}")
 except Exception:
@@ -311,5 +294,12 @@ try:
 except Exception:
     pass
 
-(scored.write.format("delta").mode("overwrite").saveAsTable(cfg.table(SCORED_TABLE_NAME)))
+# Write as Delta table
+(scored.write
+    .format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .saveAsTable(cfg.table(SCORED_TABLE_NAME)))
+
+print(f"Wrote to {cfg.table(SCORED_TABLE_NAME)}")
 display(spark.table(cfg.table(SCORED_TABLE_NAME)).orderBy(F.desc("late_risk_prob")).limit(20))
