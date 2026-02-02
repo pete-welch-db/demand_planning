@@ -31,7 +31,7 @@
 # MAGIC %pip install -q \
 # MAGIC   "numpy==1.26.4" \
 # MAGIC   "pandas==2.2.3" \
-# MAGIC   "mlflow==2.14.2" \
+# MAGIC   "mlflow[databricks]==2.14.2" \
 # MAGIC   "scikit-learn==1.5.2" \
 # MAGIC   "matplotlib==3.9.2"
 
