@@ -14,24 +14,9 @@ class DatabricksAuthError(RuntimeError):
     pass
 
 
-def _get_credentials_provider():
-    """
-    Returns a credentials provider for Databricks Apps OAuth.
-    Falls back to None if not running in Databricks Apps.
-    """
-    try:
-        from databricks.sdk.credentials_provider import (
-            CredentialsProvider,
-            credentials,
-        )
-        
-        # Check if we're running in Databricks Apps (has DATABRICKS_APP_NAME env var)
-        if os.getenv("DATABRICKS_APP_NAME"):
-            # Use default credential chain (picks up Apps OAuth automatically)
-            return credentials
-        return None
-    except ImportError:
-        return None
+def _is_databricks_apps() -> bool:
+    """Check if running in Databricks Apps environment."""
+    return bool(os.getenv("DATABRICKS_APP_NAME"))
 
 
 @dataclass(frozen=True)
@@ -47,7 +32,7 @@ class SqlClient:
         http_path = self.cfg.databricks_http_path
         
         # Try Databricks Apps OAuth first
-        if os.getenv("DATABRICKS_APP_NAME"):
+        if _is_databricks_apps():
             try:
                 from databricks.sdk import WorkspaceClient
                 from databricks.sdk.service.sql import StatementState

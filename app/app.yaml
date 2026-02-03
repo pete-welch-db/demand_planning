@@ -4,9 +4,3 @@ command:
   - "app.py"
   - "--server.port=8080"
   - "--server.address=0.0.0.0"
-
-env:
-  - name: DATABRICKS_CATALOG
-    value: "welch"
-  - name: DATABRICKS_SCHEMA
-    value: "demand_planning_demo"
