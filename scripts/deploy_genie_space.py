@@ -1,148 +1,166 @@
 #!/usr/bin/env python3
 """
-Deploy a Genie space to Databricks using the Genie Management API.
-
-This script creates or updates a Genie space based on the configuration in
-genie/genie_space_config.json. It uses the Databricks SDK for Python.
+Deploy a Genie space to Databricks using the correct serialized_space format.
 
 Usage:
     python scripts/deploy_genie_space.py
-
-Environment variables required:
-    DATABRICKS_HOST - Workspace URL (e.g., https://adb-xxx.azuredatabricks.net)
-    DATABRICKS_TOKEN - Personal access token or OAuth token
-    
-Optional:
-    GENIE_WAREHOUSE_ID - SQL warehouse ID (defaults to DATABRICKS_HTTP_PATH extraction)
-    GENIE_PARENT_PATH - Folder path for the space (defaults to /Shared)
 """
 
 import json
 import os
 import sys
+import uuid
 from pathlib import Path
 
+
+def generate_id():
+    """Generate a Databricks-style ID."""
+    return uuid.uuid4().hex[:32]
+
+
 def main():
-    # Check for required environment variables
-    host = os.environ.get("DATABRICKS_HOST")
+    host = os.environ.get("DATABRICKS_HOST", "").rstrip("/")
     token = os.environ.get("DATABRICKS_TOKEN")
     
     if not host or not token:
-        print("ERROR: DATABRICKS_HOST and DATABRICKS_TOKEN environment variables required")
+        print("ERROR: DATABRICKS_HOST and DATABRICKS_TOKEN required")
         sys.exit(1)
     
-    # Try to import databricks SDK
     try:
         from databricks.sdk import WorkspaceClient
-        from databricks.sdk.service.dashboards import GenieAPI
     except ImportError:
-        print("ERROR: databricks-sdk not installed. Run: pip install databricks-sdk")
+        print("ERROR: pip install databricks-sdk")
         sys.exit(1)
     
-    # Load configuration
     config_path = Path(__file__).parent.parent / "genie" / "genie_space_config.json"
-    if not config_path.exists():
-        print(f"ERROR: Config file not found: {config_path}")
-        sys.exit(1)
-    
     with open(config_path) as f:
         config = json.load(f)
     
-    # Get warehouse ID
     warehouse_id = os.environ.get("GENIE_WAREHOUSE_ID")
     if not warehouse_id:
-        # Try to extract from DATABRICKS_HTTP_PATH
         http_path = os.environ.get("DATABRICKS_HTTP_PATH", "")
         if "/warehouses/" in http_path:
             warehouse_id = http_path.split("/warehouses/")[-1]
         else:
-            print("ERROR: GENIE_WAREHOUSE_ID or DATABRICKS_HTTP_PATH with warehouse ID required")
+            print("ERROR: Warehouse ID required")
             sys.exit(1)
     
     parent_path = os.environ.get("GENIE_PARENT_PATH", "/Shared")
     
-    print(f"Deploying Genie space: {config['title']}")
-    print(f"  Host: {host}")
+    print(f"Deploying: {config['title']}")
     print(f"  Warehouse: {warehouse_id}")
-    print(f"  Parent path: {parent_path}")
     print(f"  Tables: {len(config['tables'])}")
     
-    # Initialize client
     w = WorkspaceClient(host=host, token=token)
     
-    # Check if space already exists by listing spaces
+    # Build serialized_space in correct Databricks format (version 2)
+    serialized_space_obj = {
+        "version": 2,
+        "config": {
+            "sample_questions": [
+                {
+                    "id": generate_id(),
+                    "question": [q["question"]]
+                }
+                for q in config.get("sample_queries", [])
+            ]
+        },
+        "data_sources": {
+            "tables": [
+                {"identifier": table}
+                for table in sorted(config["tables"])  # Must be sorted!
+            ]
+        },
+        "instructions": {
+            "text_instructions": [
+                {
+                    "id": generate_id(),
+                    "content": [config.get("instructions", "")]
+                }
+            ]
+        }
+    }
+    
+    serialized_space = json.dumps(serialized_space_obj)
+    print(f"  Serialized space: {len(serialized_space)} chars")
+    
+    # Check for existing space
+    import requests
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    
     existing_space_id = None
     try:
-        spaces_response = w.genie.list_spaces()
-        if hasattr(spaces_response, 'spaces') and spaces_response.spaces:
-            for space in spaces_response.spaces:
-                if space.title == config['title']:
-                    existing_space_id = space.id
-                    print(f"  Found existing space: {existing_space_id}")
+        resp = requests.get(f"{host}/api/2.0/genie/spaces", headers=headers)
+        if resp.status_code == 200:
+            for space in resp.json().get("spaces", []):
+                if space.get("title") == config["title"]:
+                    existing_space_id = space.get("space_id")
+                    print(f"  Found existing: {existing_space_id}")
                     break
     except Exception as e:
-        print(f"  Warning: Could not list existing spaces: {e}")
-    
-    # Build the serialized space payload
-    # Note: The exact format depends on Databricks' internal schema
-    # This is a simplified version - you may need to capture a real serialized_space
-    # from an existing Genie space using: w.genie.get_space(space_id, include_serialized_space=True)
-    
-    serialized_space = json.dumps({
-        "tables": config["tables"],
-        "instructions": config.get("instructions", ""),
-        "sample_queries": config.get("sample_queries", [])
-    })
+        print(f"  Note: {e}")
     
     try:
         if existing_space_id:
             # Update existing space
-            print(f"  Updating existing Genie space...")
-            result = w.genie.update_space(
-                space_id=existing_space_id,
-                title=config["title"],
-                description=config.get("description"),
-                serialized_space=serialized_space,
-                warehouse_id=warehouse_id
+            print(f"  Updating existing space...")
+            resp = requests.patch(
+                f"{host}/api/2.0/genie/spaces/{existing_space_id}",
+                headers=headers,
+                json={
+                    "title": config["title"],
+                    "description": config.get("description", ""),
+                    "warehouse_id": warehouse_id,
+                    "serialized_space": serialized_space
+                }
             )
-            print(f"  Updated space: {result.id}")
+            
+            if resp.status_code in [200, 201]:
+                result_id = existing_space_id
+                print(f"\n✅ Updated space: {result_id}")
+            else:
+                raise Exception(f"Update failed: {resp.status_code} - {resp.text}")
         else:
             # Create new space
-            print(f"  Creating new Genie space...")
+            print(f"  Creating new space...")
             result = w.genie.create_space(
                 warehouse_id=warehouse_id,
                 title=config["title"],
-                description=config.get("description"),
+                description=config.get("description", ""),
                 parent_path=parent_path,
                 serialized_space=serialized_space
             )
-            print(f"  Created space: {result.id}")
+            
+            # Extract the space_id from the result object
+            if hasattr(result, 'space_id'):
+                result_id = result.space_id
+            elif hasattr(result, 'id'):
+                result_id = result.id
+            else:
+                # Parse from string representation
+                import re
+                match = re.search(r"space_id='([^']+)'", str(result))
+                result_id = match.group(1) if match else str(result)
+            
+            print(f"\n✅ Created space: {result_id}")
         
-        # Output the space ID for downstream use
-        space_url = f"{host}/genie/spaces/{result.id}"
-        print(f"\n  Genie Space URL: {space_url}")
-        print(f"  Space ID: {result.id}")
+        print(f"   URL: {host}/genie/spaces/{result_id}")
         
-        # Write space ID to a file for reference
+        # Save ID
         output_file = Path(__file__).parent.parent / ".genie_space_id"
         with open(output_file, "w") as f:
-            f.write(result.id)
-        print(f"  Space ID saved to: {output_file}")
+            f.write(result_id)
         
-        # Also output the env var format for easy copy-paste
-        print(f"\n  Add to .env for Streamlit app:")
-        print(f"  GENIE_SPACE_ID={result.id}")
-        
+        print(f"\n   Add to .env: GENIE_SPACE_ID={result_id}")
         return 0
         
     except Exception as e:
-        print(f"\nERROR: Failed to deploy Genie space: {e}")
-        print("\nNote: The Genie Management API requires specific serialized_space format.")
-        print("You may need to:")
-        print("1. Create a Genie space manually in the UI first")
-        print("2. Export its serialized_space using:")
-        print("   w.genie.get_space(space_id, include_serialized_space=True)")
-        print("3. Use that format as a template for automation")
+        print(f"\nError: {e}")
+        print("\n" + "="*60)
+        print("MANUAL CREATION")
+        print("="*60)
+        print(f"Go to: {host}/genie")
+        print(f"Create space with tables from welch.demand_planning_demo")
         return 1
 
 

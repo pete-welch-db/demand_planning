@@ -826,74 +826,99 @@
         {
           "widget": {
             "name": "network_header",
-            "multilineTextboxSpec": {
-              "lines": [
-                "# 🗺️ ADS Supply Chain Network",
-                "",
-                "**Real ADS manufacturing plants and distribution centers across North America** | Click locations for details"
-              ]
+            "textboxSpec": {
+              "value": "# 🗺️ ADS Supply Chain Network\n\n**16 Manufacturing Plants + 11 Distribution Centers across 5 US regions**"
             }
           },
-          "position": { "x": 0, "y": 0, "width": 8, "height": 1 }
+          "position": { "x": 0, "y": 0, "width": 6, "height": 1 }
         },
         {
           "widget": {
-            "name": "network_map",
+            "name": "plant_count",
             "queries": [{ "name": "main_query", "query": { "datasetName": "network_locations", "fields": [
-              { "name": "lat", "expression": "`lat`" },
-              { "name": "lon", "expression": "`lon`" },
-              { "name": "location_name", "expression": "`location_name`" },
+              { "name": "count", "expression": "COUNT_IF(`location_type` = 'Plant')" }
+            ], "disaggregated": false }}],
+            "spec": {
+              "version": 2, "widgetType": "counter",
+              "encodings": { "value": { "fieldName": "count", "displayName": "Plants" }},
+              "frame": { "title": "🏭 Plants", "showTitle": true }
+            }
+          },
+          "position": { "x": 6, "y": 0, "width": 1, "height": 1 }
+        },
+        {
+          "widget": {
+            "name": "dc_count",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "network_locations", "fields": [
+              { "name": "count", "expression": "COUNT_IF(`location_type` = 'DC')" }
+            ], "disaggregated": false }}],
+            "spec": {
+              "version": 2, "widgetType": "counter",
+              "encodings": { "value": { "fieldName": "count", "displayName": "DCs" }},
+              "frame": { "title": "📦 DCs", "showTitle": true }
+            }
+          },
+          "position": { "x": 7, "y": 0, "width": 1, "height": 1 }
+        },
+        {
+          "widget": {
+            "name": "facilities_by_region",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "network_locations", "fields": [
+              { "name": "region", "expression": "`region`" },
               { "name": "location_type", "expression": "`location_type`" },
-              { "name": "city", "expression": "`city`" },
-              { "name": "state", "expression": "`state`" }
+              { "name": "count", "expression": "COUNT(*)" }
             ], "disaggregated": true }}],
             "spec": {
-              "version": 3,
-              "widgetType": "map",
+              "version": 3, "widgetType": "bar",
               "encodings": {
-                "latitude": { "fieldName": "lat", "displayName": "Latitude" },
-                "longitude": { "fieldName": "lon", "displayName": "Longitude" },
-                "color": { "fieldName": "location_type", "displayName": "Type", "scale": { "type": "categorical" }},
-                "label": { "fieldName": "location_name", "displayName": "Name" }
+                "x": { "fieldName": "count", "displayName": "Count", "scale": { "type": "quantitative" }},
+                "y": { "fieldName": "region", "displayName": "Region", "scale": { "type": "categorical" }},
+                "color": { "fieldName": "location_type", "displayName": "Type", "scale": { "type": "categorical" }}
               },
-              "frame": { "title": "📍 ADS Facility Locations", "showTitle": true }
+              "frame": { "title": "📊 Facilities by Region", "showTitle": true }
             }
           },
-          "position": { "x": 0, "y": 1, "width": 8, "height": 5 }
+          "position": { "x": 0, "y": 1, "width": 4, "height": 4 }
         },
         {
           "widget": {
-            "name": "locations_table",
+            "name": "facilities_by_state",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "network_locations", "fields": [
+              { "name": "state", "expression": "`state`" },
+              { "name": "count", "expression": "COUNT(*)" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 3, "widgetType": "bar",
+              "encodings": {
+                "x": { "fieldName": "count", "displayName": "Facilities", "scale": { "type": "quantitative" }},
+                "y": { "fieldName": "state", "displayName": "State", "scale": { "type": "categorical" }, "sort": "descending" }
+              },
+              "frame": { "title": "📍 Facilities by State", "showTitle": true }
+            }
+          },
+          "position": { "x": 4, "y": 1, "width": 4, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "plants_table",
             "queries": [{ "name": "main_query", "query": { "datasetName": "network_locations", "fields": [
               { "name": "location_type", "expression": "`location_type`" },
-              { "name": "location_id", "expression": "`location_id`" },
               { "name": "location_name", "expression": "`location_name`" },
               { "name": "city", "expression": "`city`" },
               { "name": "state", "expression": "`state`" },
               { "name": "region", "expression": "`region`" }
             ], "disaggregated": true }}],
             "spec": {
-              "version": 1, "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  { "fieldName": "location_type", "type": "string", "displayAs": "string", "visible": true, "order": 1, "title": "Type" },
-                  { "fieldName": "location_id", "type": "string", "displayAs": "string", "visible": true, "order": 2, "title": "ID" },
-                  { "fieldName": "location_name", "type": "string", "displayAs": "string", "visible": true, "order": 3, "title": "Facility Name" },
-                  { "fieldName": "city", "type": "string", "displayAs": "string", "visible": true, "order": 4, "title": "City" },
-                  { "fieldName": "state", "type": "string", "displayAs": "string", "visible": true, "order": 5, "title": "State" },
-                  { "fieldName": "region", "type": "string", "displayAs": "string", "visible": true, "order": 6, "title": "Region" }
-                ]
-              },
-              "itemsPerPage": 20,
-              "condensed": true,
-              "frame": { "title": "📋 All Facilities", "showTitle": true }
+              "version": 2, "widgetType": "table",
+              "encodings": {},
+              "frame": { "title": "🏭 All Facilities", "showTitle": true }
             }
           },
-          "position": { "x": 0, "y": 6, "width": 4, "height": 4 }
+          "position": { "x": 0, "y": 5, "width": 4, "height": 5 }
         },
         {
           "widget": {
-            "name": "lanes_table",
+            "name": "lanes_summary",
             "queries": [{ "name": "main_query", "query": { "datasetName": "lanes_with_coords", "fields": [
               { "name": "plant_name", "expression": "`plant_name`" },
               { "name": "dc_name", "expression": "`dc_name`" },
@@ -901,21 +926,12 @@
               { "name": "co2_kg_per_ton", "expression": "`co2_kg_per_ton`" }
             ], "disaggregated": true }}],
             "spec": {
-              "version": 1, "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  { "fieldName": "plant_name", "type": "string", "displayAs": "string", "visible": true, "order": 1, "title": "Origin (Plant)" },
-                  { "fieldName": "dc_name", "type": "string", "displayAs": "string", "visible": true, "order": 2, "title": "Destination (DC)" },
-                  { "fieldName": "freight_cost", "type": "float", "displayAs": "number", "numberFormat": "$0.00", "visible": true, "order": 3, "title": "Freight $/ton" },
-                  { "fieldName": "co2_kg_per_ton", "type": "float", "displayAs": "number", "numberFormat": "0.0", "visible": true, "order": 4, "title": "CO₂ kg/ton" }
-                ]
-              },
-              "itemsPerPage": 20,
-              "condensed": true,
-              "frame": { "title": "🚚 Freight Lanes", "showTitle": true }
+              "version": 2, "widgetType": "table",
+              "encodings": {},
+              "frame": { "title": "🚚 Top Freight Lanes", "showTitle": true }
             }
           },
-          "position": { "x": 4, "y": 6, "width": 4, "height": 4 }
+          "position": { "x": 4, "y": 5, "width": 4, "height": 5 }
         }
       ],
       "pageType": "PAGE_TYPE_CANVAS"
