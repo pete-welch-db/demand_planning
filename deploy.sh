@@ -176,40 +176,16 @@ try:
         )
         print(f"  ✅ App deployment initiated")
         
-        # Wait a moment for deployment to start
+        # Wait for deployment to start
         import time
-        time.sleep(3)
+        time.sleep(5)
         
         # Get app details to find service principal
         app = w.apps.get(app_name)
         sp_id = getattr(app, 'service_principal_id', None)
+        sp_name = getattr(app, 'service_principal_name', None) or f"app-{app_name}"
         
-        if sp_id:
-            print(f"  Granting permissions to app service principal...")
-            catalog = os.environ.get("DATABRICKS_CATALOG", "welch")
-            schema = os.environ.get("DATABRICKS_SCHEMA", "demand_planning_demo")
-            
-            # Grant catalog access
-            try:
-                w.grants.update(
-                    securable_type="catalog",
-                    full_name=catalog,
-                    changes=[{"principal": f"users/{sp_id}", "add": ["USE_CATALOG"]}]
-                )
-            except Exception as e:
-                pass  # May already have access
-            
-            # Grant schema access
-            try:
-                w.grants.update(
-                    securable_type="schema", 
-                    full_name=f"{catalog}.{schema}",
-                    changes=[{"principal": f"users/{sp_id}", "add": ["USE_SCHEMA", "SELECT"]}]
-                )
-            except Exception as e:
-                pass  # May already have access
-            
-            print(f"  ✅ Permissions granted")
+        print(f"  App service principal: {sp_name} (ID: {sp_id})")
         
         # Start the app
         try:
@@ -231,6 +207,183 @@ else
 fi
 
 # ============================================
+# Step 6: Grant App Service Principal Permissions
+# ============================================
+echo ""
+echo "🔐 Step 6: Granting permissions to app service principal..."
+if command -v python3 &> /dev/null && python3 -c "import databricks.sdk" 2>/dev/null; then
+  python3 - << PYTHON_SCRIPT
+import os
+import sys
+import time
+
+try:
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.service.catalog import SecurableType, PermissionsChange, Privilege
+    from databricks.sdk.service.sql import PermissionLevel, SetRequest, ObjectTypePlural
+    
+    host = os.environ.get("DATABRICKS_HOST", "").rstrip("/")
+    token = os.environ.get("DATABRICKS_TOKEN")
+    
+    if not host or not token:
+        print("  Warning: Missing DATABRICKS_HOST or DATABRICKS_TOKEN")
+        sys.exit(0)
+    
+    w = WorkspaceClient(host=host, token=token)
+    
+    app_name = "$APP_NAME"
+    catalog = os.environ.get("DATABRICKS_CATALOG", "welch")
+    schema = os.environ.get("DATABRICKS_SCHEMA", "demand_planning_demo")
+    http_path = os.environ.get("DATABRICKS_HTTP_PATH", "")
+    warehouse_id = http_path.split("/")[-1] if "/" in http_path else http_path
+    genie_space_id = "$GENIE_SPACE_ID" if "$GENIE_SPACE_ID" else None
+    dashboard_id = "$DASHBOARD_ID" if "$DASHBOARD_ID" else None
+    
+    # Get app service principal
+    try:
+        app = w.apps.get(app_name)
+        sp_id = getattr(app, 'service_principal_id', None)
+        sp_name = getattr(app, 'service_principal_name', None)
+        
+        if not sp_id:
+            print("  Warning: Could not find app service principal ID")
+            sys.exit(0)
+            
+        print(f"  Service principal: {sp_name}")
+        
+    except Exception as e:
+        print(f"  Warning: Could not get app details: {e}")
+        sys.exit(0)
+    
+    # 1. Grant SQL Warehouse access (CAN_USE)
+    if warehouse_id:
+        print(f"  Granting SQL Warehouse access ({warehouse_id})...")
+        try:
+            # Use SQL permissions API
+            from databricks.sdk.service.sql import GetPermissionLevelsRequest
+            
+            # Get current permissions and add service principal
+            current = w.dbsql_permissions.get(
+                object_type=ObjectTypePlural.WAREHOUSES,
+                object_id=warehouse_id
+            )
+            
+            # Build new ACL with service principal
+            new_acl = list(current.access_control_list or [])
+            sp_exists = any(
+                getattr(acl, 'service_principal_name', None) == sp_name
+                for acl in new_acl
+            )
+            
+            if not sp_exists:
+                from databricks.sdk.service.sql import AccessControl
+                new_acl.append(AccessControl(
+                    service_principal_name=sp_name,
+                    permission_level=PermissionLevel.CAN_USE
+                ))
+                
+                w.dbsql_permissions.set(
+                    object_type=ObjectTypePlural.WAREHOUSES,
+                    object_id=warehouse_id,
+                    access_control_list=new_acl
+                )
+                print(f"    ✅ Warehouse CAN_USE granted")
+            else:
+                print(f"    ✓ Warehouse access already exists")
+                
+        except Exception as e:
+            print(f"    ⚠️  Warehouse permission: {e}")
+    
+    # 2. Grant Unity Catalog access
+    print(f"  Granting Unity Catalog access ({catalog}.{schema})...")
+    
+    # Grant USE_CATALOG on catalog
+    try:
+        w.grants.update(
+            securable_type=SecurableType.CATALOG,
+            full_name=catalog,
+            changes=[PermissionsChange(
+                principal=sp_name,
+                add=[Privilege.USE_CATALOG]
+            )]
+        )
+        print(f"    ✅ USE_CATALOG on {catalog}")
+    except Exception as e:
+        if "already" in str(e).lower() or "exists" in str(e).lower():
+            print(f"    ✓ USE_CATALOG already granted")
+        else:
+            print(f"    ⚠️  Catalog: {e}")
+    
+    # Grant USE_SCHEMA and SELECT on schema
+    try:
+        w.grants.update(
+            securable_type=SecurableType.SCHEMA,
+            full_name=f"{catalog}.{schema}",
+            changes=[PermissionsChange(
+                principal=sp_name,
+                add=[Privilege.USE_SCHEMA, Privilege.SELECT]
+            )]
+        )
+        print(f"    ✅ USE_SCHEMA + SELECT on {catalog}.{schema}")
+    except Exception as e:
+        if "already" in str(e).lower() or "exists" in str(e).lower():
+            print(f"    ✓ Schema permissions already granted")
+        else:
+            print(f"    ⚠️  Schema: {e}")
+    
+    # 3. Grant Dashboard access (if dashboard exists)
+    if dashboard_id:
+        print(f"  Granting Dashboard access ({dashboard_id})...")
+        try:
+            from databricks.sdk.service.dashboards import PermissionLevel as DashPermLevel
+            
+            w.lakeview.update_permissions(
+                dashboard_id=dashboard_id,
+                access_control_list=[{
+                    "service_principal_name": sp_name,
+                    "permission_level": "CAN_VIEW"
+                }]
+            )
+            print(f"    ✅ Dashboard CAN_VIEW granted")
+        except Exception as e:
+            print(f"    ⚠️  Dashboard permission: {e}")
+    
+    # 4. Grant Genie Space access (if genie exists)
+    if genie_space_id and genie_space_id != "":
+        print(f"  Granting Genie Space access ({genie_space_id})...")
+        try:
+            # Genie permissions via REST API
+            import requests
+            
+            response = requests.patch(
+                f"{host}/api/2.0/genie/spaces/{genie_space_id}/permissions",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "access_control_list": [{
+                        "service_principal_name": sp_name,
+                        "permission_level": "CAN_QUERY"
+                    }]
+                }
+            )
+            if response.status_code in (200, 201):
+                print(f"    ✅ Genie CAN_QUERY granted")
+            else:
+                print(f"    ⚠️  Genie permission: {response.text}")
+        except Exception as e:
+            print(f"    ⚠️  Genie permission: {e}")
+    
+    print(f"  ✅ All permissions configured")
+    
+except ImportError as e:
+    print(f"  Warning: Missing SDK module: {e}")
+except Exception as e:
+    print(f"  Warning: {e}")
+PYTHON_SCRIPT
+else
+  echo "  ⏭️  Skipping permission grants (databricks-sdk not installed)"
+fi
+
+# ============================================
 # Summary
 # ============================================
 echo ""
@@ -244,6 +397,11 @@ echo "  2. ✅ Data: Bronze → Silver → Gold pipeline completed"
 echo "  3. ${GENIE_STATUS} Genie: AI/BI Genie space"
 echo "  4. ✅ Dashboard: AI/BI Dashboard refreshed"
 echo "  5. ✅ App: Streamlit app deployed"
+echo "  6. ✅ Permissions: App service principal granted access to:"
+echo "       - SQL Warehouse (CAN_USE)"
+echo "       - Unity Catalog (USE_CATALOG, USE_SCHEMA, SELECT)"
+echo "       - Dashboard (CAN_VIEW)"
+echo "       - Genie Space (CAN_QUERY)"
 echo ""
 echo "Resources:"
 echo "  📊 Dashboard: ${DATABRICKS_HOST}/dashboardsv3/${DASHBOARD_ID:-<pending>}"

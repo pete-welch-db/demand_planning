@@ -85,9 +85,10 @@ def get_config() -> AppConfig:
         genie_space_id=_getenv("GENIE_SPACE_ID"),
         dashboard_embed_url=_getenv(
             "DASHBOARD_EMBED_URL",
-            "https://adb-984752964297111.11.azuredatabricks.net/embed/dashboardsv3/01f0fd5419f41998aa76722bb82632cb?o=984752964297111",
+            "https://adb-984752964297111.11.azuredatabricks.net/embed/dashboardsv3/01f1012e060f1e058d7fa1f7b7c9871c?o=984752964297111",
         ),
         databricks_token=_getenv("DATABRICKS_TOKEN"),
-        default_use_mock=(_getenv("USE_MOCK_DATA", "true") or "true").lower() == "true",
+        # Default to real data (false = try Databricks SQL first, fallback to mock on error)
+        default_use_mock=(_getenv("USE_MOCK_DATA", "false") or "false").lower() == "true",
     )
 

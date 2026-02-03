@@ -385,6 +385,73 @@ div[data-testid="stPlotlyChart"]{
   background: #FFFFFF;
   border-left: 4px solid var(--lava-600);
 }
+
+/* Fix warning/info/error alert text contrast */
+[data-testid="stAlert"] {
+  color: #1a1a1a !important;
+}
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] span,
+[data-testid="stAlert"] div {
+  color: #1a1a1a !important;
+}
+
+/* Ensure subheaders are visible */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--navy-900) !important;
+}
+.stSubheader, [data-testid="stSubheader"] {
+  color: var(--navy-900) !important;
+}
+
+/* Fix title visibility */
+[data-testid="stTitle"] h1,
+.stTitle h1 {
+  color: var(--navy-900) !important;
+}
+
+/* Ensure all main content text is visible */
+.main .block-container h1,
+.main .block-container h2,
+.main .block-container h3 {
+  color: var(--navy-900) !important;
+}
+
+/* Info boxes with better contrast */
+[data-testid="stInfo"] {
+  background-color: #e0f2fe !important;
+  color: #0c4a6e !important;
+}
+[data-testid="stInfo"] p {
+  color: #0c4a6e !important;
+}
+
+/* Warning boxes with better contrast */
+[data-testid="stWarning"] {
+  background-color: #fef3c7 !important;
+  color: #78350f !important;
+}
+[data-testid="stWarning"] p {
+  color: #78350f !important;
+}
+
+/* Success boxes */
+[data-testid="stSuccess"] {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+}
+[data-testid="stSuccess"] p {
+  color: #065f46 !important;
+}
+
+/* Error boxes */
+[data-testid="stError"] {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+}
+[data-testid="stError"] p {
+  color: #991b1b !important;
+}
 </style>
 """
 

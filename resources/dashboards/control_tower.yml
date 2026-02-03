@@ -16,8 +16,8 @@ resources:
       file_path: ../../dashboards/demand_planning_control_tower.lvdash.json
       warehouse_id: ${var.warehouse_id}
       
-      # Optional: embed credentials for scheduled refresh
-      # embed_credentials: true
+      # Embed credentials for scheduled refresh (required for job refresh)
+      embed_credentials: true
       
       # Optional: set permissions
       # permissions:

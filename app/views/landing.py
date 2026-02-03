@@ -22,54 +22,38 @@ def render_landing_page():
     st.markdown(
         """
     <div style="
-        background: linear-gradient(135deg, #10212B 0%, #051017 100%);
+        background: linear-gradient(135deg, #1a3a4a 0%, #0d1f2d 100%);
         border-radius: 16px;
         padding: 48px 40px;
         margin-bottom: 32px;
-        position: relative;
-        overflow: hidden;
     ">
-        <div style="
-            position: absolute;
-            top: -60px;
-            right: -60px;
-            width: 320px;
-            height: 320px;
-            background: radial-gradient(circle, rgba(37, 180, 255, 0.35) 0%, transparent 70%);
-            border-radius: 50%;
-        "></div>
-        <div style="position: relative; z-index: 1;">
-            <p style="
-                color: #25B4FF;
-                font-size: 0.875rem;
-                font-weight: 600;
-                letter-spacing: 2px;
-                text-transform: uppercase;
-                margin-bottom: 12px;
-                font-family: 'DM Sans', sans-serif;
-            ">DATABRICKS FOR SUPPLY CHAIN</p>
-            <p style="
-                color: #FFFFFF !important;
-                font-size: 2.6rem;
-                font-weight: 700;
-                line-height: 1.15;
-                margin: 0 0 16px 0;
-                font-family: 'DM Sans', sans-serif;
-                text-shadow: 0 2px 4px rgba(0,0,0,0.25);
-            ">Demand Planning, Without the Blind Spots</p>
-            <p style="
-                color: rgba(255,255,255,0.85);
-                font-size: 1.2rem;
-                font-weight: 400;
-                margin: 0;
-                max-width: 640px;
-                font-family: 'DM Sans', sans-serif;
-            ">
-                For supply chain and planning leaders at regional, freight-sensitive manufacturers.<br/>
-                Unify ERP/WMS/TMS and production signals, scale forecasting to thousands of SKUs,
-                and turn forecasts into better service, cost, and sustainability outcomes.
-            </p>
-        </div>
+        <p style="
+            color: #4fd1c5;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        ">DATABRICKS FOR SUPPLY CHAIN</p>
+        <h1 style="
+            color: #FFFFFF;
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 0 0 20px 0;
+        ">Demand Planning, Without the Blind Spots</h1>
+        <p style="
+            color: #e2e8f0;
+            font-size: 1.15rem;
+            font-weight: 400;
+            margin: 0;
+            max-width: 700px;
+            line-height: 1.6;
+        ">
+            For supply chain and planning leaders at regional, freight-sensitive manufacturers.
+            Unify ERP/WMS/TMS and production signals, scale forecasting to thousands of SKUs,
+            and turn forecasts into better service, cost, and sustainability outcomes.
+        </p>
     </div>
     """,
         unsafe_allow_html=True,

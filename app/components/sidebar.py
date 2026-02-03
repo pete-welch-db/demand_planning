@@ -16,7 +16,6 @@ class SidebarState:
 NAV_ITEMS = [
     ("🏠 Overview", "landing"),
     ("📊 Control Tower", "dashboard"),
-    ("🗺️ Network Map", "network_map"),
     ("🧪 What‑If Scenarios", "scenarios"),
     ("🤖 AI Assistant", "assistant"),
 ]
@@ -28,8 +27,8 @@ def render_sidebar(cfg: AppConfig) -> SidebarState:
         st.caption("Supply chain visibility + forecasting (synthetic demo)")
 
         labels = [l for l, _ in NAV_ITEMS]
-        default_label = st.session_state.get("nav_label", "📊 Control Tower")
-        idx = labels.index(default_label) if default_label in labels else 1
+        default_label = st.session_state.get("nav_label", "🏠 Overview")
+        idx = labels.index(default_label) if default_label in labels else 0
 
         label = st.radio(
             "Nav",
