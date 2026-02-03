@@ -6,5 +6,5 @@ resources:
       source_code_path: ../../app
 
       permissions:
-        - level: CAN_VIEW
+        - level: CAN_USE
           group_name: users
