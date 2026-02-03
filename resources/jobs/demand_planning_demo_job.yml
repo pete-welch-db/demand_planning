@@ -8,13 +8,6 @@ resources:
       queue:
         enabled: true
 
-      # Use serverless compute for all notebook tasks
-      environments:
-        - environment_key: Default
-          spec:
-            client: "1"
-            dependencies: []
-
       tasks:
         - task_key: UC_Setup
           notebook_task:
@@ -22,7 +15,6 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          environment_key: Default
 
         - task_key: Generate_Bronze
           depends_on:
@@ -32,7 +24,6 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          environment_key: Default
 
         - task_key: DLT_Pipeline
           depends_on:
@@ -49,7 +40,6 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          environment_key: Default
 
         - task_key: ML_Late_Risk
           depends_on:
@@ -62,7 +52,6 @@ resources:
               model_name: "${var.late_risk_model_name}"
               train_lookback_days: "540"
               test_days: "90"
-          environment_key: Default
 
         - task_key: KPI_Metric_Refresh
           depends_on:
@@ -72,7 +61,6 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          environment_key: Default
 
         # Notebook dashboards can run in parallel after KPI refresh
         - task_key: Demand_Planner_Dashboard
@@ -83,7 +71,6 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          environment_key: Default
 
         - task_key: Logistics_Service_Dashboard
           depends_on:
@@ -93,7 +80,6 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          environment_key: Default
 
         - task_key: Sustainability_Dashboard
           depends_on:
@@ -103,7 +89,6 @@ resources:
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
-          environment_key: Default
 
         # AI/BI Dashboard refresh runs after all notebook dashboards complete
         - task_key: Dashboard_Refresh
