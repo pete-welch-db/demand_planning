@@ -46,7 +46,7 @@
         "       MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit, ",
         "       MEASURE(`Premium freight %`) AS premium_freight_pct ",
         "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
-        "WHERE (:selected_region IS NULL OR region = :selected_region) ",
+        "WHERE 1=1 ",
         "GROUP BY week ",
         "ORDER BY week"
       ]
@@ -80,7 +80,7 @@
         "       MEASURE(`Premium freight %`) AS premium_freight_pct, ",
         "       MEASURE(`Freight $/ton`) AS freight_cost_per_ton ",
         "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
-        "WHERE week >= date_sub(current_date(), 91) AND (:selected_region IS NULL OR region = :selected_region)"
+        "WHERE week >= date_sub(current_date(), 91)"
       ]
     },
     {
@@ -89,7 +89,7 @@
       "queryLines": [
         "SELECT plant_id, MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit ",
         "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
-        "WHERE week >= date_sub(current_date(), 91) AND (:selected_region IS NULL OR region = :selected_region) ",
+        "WHERE week >= date_sub(current_date(), 91) ",
         "GROUP BY plant_id ",
         "ORDER BY energy_kwh_per_unit DESC"
       ]
@@ -115,7 +115,7 @@
       "queryLines": [
         "SELECT week, MEASURE(`MAPE`) AS mape ",
         "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
-        "WHERE (:fc_region IS NULL OR region = :fc_region) AND (:fc_sku_family IS NULL OR sku_family = :fc_sku_family) ",
+        "WHERE 1=1 ",
         "GROUP BY week ",
         "ORDER BY week"
       ]
@@ -126,7 +126,7 @@
       "queryLines": [
         "SELECT sku_family, region, MEASURE(`MAPE`) AS mape ",
         "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
-        "WHERE week >= date_sub(current_date(), 91) AND (:fc_region IS NULL OR region = :fc_region) AND (:fc_sku_family IS NULL OR sku_family = :fc_sku_family) ",
+        "WHERE week >= date_sub(current_date(), 91) ",
         "GROUP BY sku_family, region ",
         "ORDER BY mape DESC"
       ]
@@ -153,7 +153,7 @@
         "       COUNT(DISTINCT week) AS weeks_analyzed, ",
         "       COUNT(DISTINCT CONCAT(sku_family, region)) AS combinations ",
         "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
-        "WHERE week >= date_sub(current_date(), 91) AND (:fc_region IS NULL OR region = :fc_region) AND (:fc_sku_family IS NULL OR sku_family = :fc_sku_family)"
+        "WHERE week >= date_sub(current_date(), 91)"
       ]
     },
     {
@@ -162,7 +162,7 @@
       "queryLines": [
         "SELECT region, MEASURE(`MAPE`) AS mape ",
         "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
-        "WHERE week >= date_sub(current_date(), 91) AND (:fc_sku_family IS NULL OR sku_family = :fc_sku_family) ",
+        "WHERE week >= date_sub(current_date(), 91) ",
         "GROUP BY region ",
         "ORDER BY mape DESC"
       ]
@@ -173,7 +173,7 @@
       "queryLines": [
         "SELECT sku_family, MEASURE(`MAPE`) AS mape ",
         "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
-        "WHERE week >= date_sub(current_date(), 91) AND (:fc_region IS NULL OR region = :fc_region) ",
+        "WHERE week >= date_sub(current_date(), 91) ",
         "GROUP BY sku_family ",
         "ORDER BY mape DESC"
       ]
@@ -185,7 +185,7 @@
         "SELECT a.week, a.sku_family, a.region, SUM(a.actual_units) AS actual_units, SUM(f.forecast_units) AS forecast_units, SUM(f.forecast_units) - SUM(a.actual_units) AS bias, CASE WHEN SUM(a.actual_units) > 0 THEN ROUND((SUM(f.forecast_units) - SUM(a.actual_units)) / SUM(a.actual_units) * 100, 1) ELSE 0 END AS bias_pct ",
         "FROM welch.demand_planning_demo.weekly_demand_actual a ",
         "LEFT JOIN welch.demand_planning_demo.demand_forecast f USING (week, sku_family, region) ",
-        "WHERE a.week >= date_sub(current_date(), 91) AND (:fc_region IS NULL OR a.region = :fc_region) AND (:fc_sku_family IS NULL OR a.sku_family = :fc_sku_family) ",
+        "WHERE a.week >= date_sub(current_date(), 91) ",
         "GROUP BY a.week, a.sku_family, a.region ORDER BY a.week"
       ]
     },
@@ -196,7 +196,7 @@
         "SELECT SUM(CASE WHEN f.forecast_units > a.actual_units THEN 1 ELSE 0 END) AS over_forecast_count, SUM(CASE WHEN f.forecast_units < a.actual_units THEN 1 ELSE 0 END) AS under_forecast_count, ROUND(AVG((f.forecast_units - a.actual_units) / NULLIF(a.actual_units, 0) * 100), 1) AS avg_bias_pct ",
         "FROM welch.demand_planning_demo.weekly_demand_actual a ",
         "LEFT JOIN welch.demand_planning_demo.demand_forecast f USING (week, sku_family, region) ",
-        "WHERE a.week >= date_sub(current_date(), 91) AND (:fc_region IS NULL OR a.region = :fc_region) AND (:fc_sku_family IS NULL OR a.sku_family = :fc_sku_family)"
+        "WHERE a.week >= date_sub(current_date(), 91)"
       ]
     },
     {
@@ -205,7 +205,7 @@
       "queryLines": [
         "SELECT sku_family, region, MEASURE(`MAPE`) AS mape ",
         "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
-        "WHERE week >= date_sub(current_date(), 91) AND (:fc_region IS NULL OR region = :fc_region) AND (:fc_sku_family IS NULL OR sku_family = :fc_sku_family) ",
+        "WHERE week >= date_sub(current_date(), 91) ",
         "GROUP BY sku_family, region ",
         "ORDER BY mape DESC ",
         "LIMIT 10"
@@ -268,7 +268,7 @@
         "SELECT a.week, a.sku_family, a.region, a.actual_units, f.forecast_units ",
         "FROM welch.demand_planning_demo.weekly_demand_actual a ",
         "LEFT JOIN welch.demand_planning_demo.demand_forecast f USING (week, sku_family, region) ",
-        "WHERE a.week >= date_sub(current_date(), 180) AND (:fc_region IS NULL OR a.region = :fc_region) AND (:fc_sku_family IS NULL OR a.sku_family = :fc_sku_family) ",
+        "WHERE a.week >= date_sub(current_date(), 180) ",
         "ORDER BY a.week"
       ]
     },
@@ -305,7 +305,7 @@
         "       MEASURE(`Premium freight %`) AS premium_freight_pct, ",
         "       MEASURE(`CO2 kg/ton`) AS co2_impact ",
         "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
-        "WHERE week >= date_sub(current_date(), 91) AND (:selected_region IS NULL OR region = :selected_region) ",
+        "WHERE week >= date_sub(current_date(), 91) ",
         "GROUP BY plant_id, dc_id ",
         "HAVING MEASURE(`Premium freight %`) > 0.05 ",
         "ORDER BY premium_freight_pct DESC ",
@@ -796,9 +796,6 @@
                 "fields": [{ "fieldName": "region", "displayName": "Region" }]
               },
               "frame": { "title": "🗺️ Filter by Region", "showTitle": true }
-            },
-            "parameterMappings": {
-              "selected_region": "region"
             }
           },
           "position": { "x": 6, "y": 0, "width": 2, "height": 1 }
@@ -1016,8 +1013,7 @@
                 "fields": [{ "fieldName": "region", "displayName": "Region" }]
               },
               "frame": { "title": "🗺️ Region", "showTitle": true }
-            },
-            "parameterMappings": { "fc_region": "region" }
+            }
           },
           "position": { "x": 4, "y": 0, "width": 2, "height": 1 }
         },
@@ -1033,8 +1029,7 @@
                 "fields": [{ "fieldName": "sku_family", "displayName": "Product" }]
               },
               "frame": { "title": "📦 Product Family", "showTitle": true }
-            },
-            "parameterMappings": { "fc_sku_family": "sku_family" }
+            }
           },
           "position": { "x": 6, "y": 0, "width": 2, "height": 1 }
         },
