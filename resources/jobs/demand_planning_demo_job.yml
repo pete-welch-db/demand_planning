@@ -12,7 +12,7 @@ resources:
       environments:
         - environment_key: Default
           spec:
-            client: "1"
+            dependencies: []
 
       tasks:
         - task_key: UC_Setup
@@ -38,7 +38,7 @@ resources:
             - task_key: Generate_Bronze
           pipeline_task:
             pipeline_id: "${var.existing_dlt_pipeline_id}"
-            full_refresh: false
+            full_refresh: true
 
         - task_key: Weekly_Forecast_ML
           depends_on:
