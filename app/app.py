@@ -25,7 +25,7 @@ from components.sidebar import render_sidebar  # noqa: E402
 from components.header import render_header  # noqa: E402
 from config import get_config  # noqa: E402
 
-from views import landing, dashboard, scenarios, assistant  # noqa: E402
+from views import landing, dashboard, network_map, scenarios, assistant  # noqa: E402
 
 
 def main() -> None:
@@ -44,6 +44,8 @@ def main() -> None:
         landing.render(cfg, state.use_mock)
     elif state.view == "dashboard":
         dashboard.render(cfg, state.use_mock)
+    elif state.view == "network_map":
+        network_map.render(cfg, state.use_mock)
     elif state.view == "scenarios":
         scenarios.render(cfg, state.use_mock)
     elif state.view == "assistant":

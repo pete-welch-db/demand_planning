@@ -63,3 +63,30 @@ def get_order_late_risk(cfg: AppConfig, use_mock: bool) -> DataResult:
         fn_mock=lambda: mock_data.order_late_risk_mock(),
     )
 
+
+def get_plant_locations(cfg: AppConfig, use_mock: bool) -> DataResult:
+    client = get_sql_client(cfg)
+    return _fallback(
+        use_mock,
+        fn_live=lambda: client.query(queries.q_plant_locations(cfg)),
+        fn_mock=lambda: mock_data.plant_locations_mock(),
+    )
+
+
+def get_dc_locations(cfg: AppConfig, use_mock: bool) -> DataResult:
+    client = get_sql_client(cfg)
+    return _fallback(
+        use_mock,
+        fn_live=lambda: client.query(queries.q_dc_locations(cfg)),
+        fn_mock=lambda: mock_data.dc_locations_mock(),
+    )
+
+
+def get_freight_lanes(cfg: AppConfig, use_mock: bool) -> DataResult:
+    client = get_sql_client(cfg)
+    return _fallback(
+        use_mock,
+        fn_live=lambda: client.query(queries.q_freight_lanes(cfg)),
+        fn_mock=lambda: mock_data.freight_lanes_mock(),
+    )
+

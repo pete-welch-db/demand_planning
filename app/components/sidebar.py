@@ -16,6 +16,7 @@ class SidebarState:
 NAV_ITEMS = [
     ("🏠 Overview", "landing"),
     ("📊 Control Tower", "dashboard"),
+    ("🗺️ Network Map", "network_map"),
     ("🧪 What‑If Scenarios", "scenarios"),
     ("🤖 AI Assistant", "assistant"),
 ]

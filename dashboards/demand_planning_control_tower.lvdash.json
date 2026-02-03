@@ -247,6 +247,56 @@
         "ORDER BY freight_cost DESC ",
         "LIMIT 20"
       ]
+    },
+    {
+      "name": "plant_count_dataset",
+      "displayName": "Plant Count",
+      "queryLines": [
+        "SELECT COUNT(*) AS plant_count FROM welch.demand_planning_demo.silver_plant_locations"
+      ]
+    },
+    {
+      "name": "dc_count_dataset",
+      "displayName": "DC Count",
+      "queryLines": [
+        "SELECT COUNT(*) AS dc_count FROM welch.demand_planning_demo.silver_dc_locations"
+      ]
+    },
+    {
+      "name": "all_facilities",
+      "displayName": "All Facilities",
+      "queryLines": [
+        "SELECT 'Plant' AS facility_type, plant_id AS id, plant_name AS name, ",
+        "       plant_city AS city, plant_state AS state, plant_region AS region ",
+        "FROM welch.demand_planning_demo.silver_plant_locations ",
+        "UNION ALL ",
+        "SELECT 'DC' AS facility_type, dc_id AS id, dc_name AS name, ",
+        "       dc_city AS city, dc_state AS state, dc_region AS region ",
+        "FROM welch.demand_planning_demo.silver_dc_locations ",
+        "ORDER BY facility_type, region, state"
+      ]
+    },
+    {
+      "name": "top_freight_lanes",
+      "displayName": "Top Freight Lanes",
+      "queryLines": [
+        "WITH lanes AS ( ",
+        "  SELECT plant_id, dc_id, ",
+        "         MEASURE(`Freight $/ton`) AS freight_cost, ",
+        "         MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton ",
+        "  FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "  WHERE week >= date_sub(current_date(), 91) ",
+        "  GROUP BY plant_id, dc_id ",
+        ") ",
+        "SELECT p.plant_name, d.dc_name, ",
+        "       ROUND(l.freight_cost, 2) AS freight_cost, ",
+        "       ROUND(l.co2_kg_per_ton, 1) AS co2_kg_per_ton ",
+        "FROM lanes l ",
+        "JOIN welch.demand_planning_demo.silver_plant_locations p ON l.plant_id = p.plant_id ",
+        "JOIN welch.demand_planning_demo.silver_dc_locations d ON l.dc_id = d.dc_id ",
+        "ORDER BY l.freight_cost DESC ",
+        "LIMIT 15"
+      ]
     }
   ],
   "pages": [
@@ -839,12 +889,12 @@
         {
           "widget": {
             "name": "plant_count",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "network_locations", "fields": [
-              { "name": "count", "expression": "COUNT_IF(`location_type` = 'Plant')" }
-            ], "disaggregated": false }}],
+            "queries": [{ "name": "main_query", "query": { "datasetName": "plant_count_dataset", "fields": [
+              { "name": "plant_count", "expression": "`plant_count`" }
+            ], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
-              "encodings": { "value": { "fieldName": "count", "displayName": "Plants" }},
+              "encodings": { "value": { "fieldName": "plant_count", "displayName": "Plants" }},
               "frame": { "title": "🏭 Plants", "showTitle": true }
             }
           },
@@ -853,12 +903,12 @@
         {
           "widget": {
             "name": "dc_count",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "network_locations", "fields": [
-              { "name": "count", "expression": "COUNT_IF(`location_type` = 'DC')" }
-            ], "disaggregated": false }}],
+            "queries": [{ "name": "main_query", "query": { "datasetName": "dc_count_dataset", "fields": [
+              { "name": "dc_count", "expression": "`dc_count`" }
+            ], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
-              "encodings": { "value": { "fieldName": "count", "displayName": "DCs" }},
+              "encodings": { "value": { "fieldName": "dc_count", "displayName": "DCs" }},
               "frame": { "title": "📦 DCs", "showTitle": true }
             }
           },
@@ -867,17 +917,17 @@
         {
           "widget": {
             "name": "facilities_by_region",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "network_locations", "fields": [
+            "queries": [{ "name": "main_query", "query": { "datasetName": "all_facilities", "fields": [
               { "name": "region", "expression": "`region`" },
-              { "name": "location_type", "expression": "`location_type`" },
+              { "name": "facility_type", "expression": "`facility_type`" },
               { "name": "count", "expression": "COUNT(*)" }
-            ], "disaggregated": true }}],
+            ], "disaggregated": false }}],
             "spec": {
               "version": 3, "widgetType": "bar",
               "encodings": {
                 "x": { "fieldName": "count", "displayName": "Count", "scale": { "type": "quantitative" }},
                 "y": { "fieldName": "region", "displayName": "Region", "scale": { "type": "categorical" }},
-                "color": { "fieldName": "location_type", "displayName": "Type", "scale": { "type": "categorical" }}
+                "color": { "fieldName": "facility_type", "displayName": "Type", "scale": { "type": "categorical" }}
               },
               "frame": { "title": "📊 Facilities by Region", "showTitle": true }
             }
@@ -887,10 +937,10 @@
         {
           "widget": {
             "name": "facilities_by_state",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "network_locations", "fields": [
+            "queries": [{ "name": "main_query", "query": { "datasetName": "all_facilities", "fields": [
               { "name": "state", "expression": "`state`" },
               { "name": "count", "expression": "COUNT(*)" }
-            ], "disaggregated": true }}],
+            ], "disaggregated": false }}],
             "spec": {
               "version": 3, "widgetType": "bar",
               "encodings": {
@@ -904,17 +954,27 @@
         },
         {
           "widget": {
-            "name": "plants_table",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "network_locations", "fields": [
-              { "name": "location_type", "expression": "`location_type`" },
-              { "name": "location_name", "expression": "`location_name`" },
+            "name": "facilities_table",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "all_facilities", "fields": [
+              { "name": "facility_type", "expression": "`facility_type`" },
+              { "name": "name", "expression": "`name`" },
               { "name": "city", "expression": "`city`" },
               { "name": "state", "expression": "`state`" },
               { "name": "region", "expression": "`region`" }
             ], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "table",
-              "encodings": {},
+              "encodings": {
+                "columns": [
+                  { "fieldName": "facility_type", "type": "string", "displayAs": "string", "visible": true, "order": 1, "title": "Type" },
+                  { "fieldName": "name", "type": "string", "displayAs": "string", "visible": true, "order": 2, "title": "Name" },
+                  { "fieldName": "city", "type": "string", "displayAs": "string", "visible": true, "order": 3, "title": "City" },
+                  { "fieldName": "state", "type": "string", "displayAs": "string", "visible": true, "order": 4, "title": "State" },
+                  { "fieldName": "region", "type": "string", "displayAs": "string", "visible": true, "order": 5, "title": "Region" }
+                ]
+              },
+              "itemsPerPage": 15,
+              "condensed": true,
               "frame": { "title": "🏭 All Facilities", "showTitle": true }
             }
           },
@@ -922,8 +982,8 @@
         },
         {
           "widget": {
-            "name": "lanes_summary",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "lanes_with_coords", "fields": [
+            "name": "lanes_table",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "top_freight_lanes", "fields": [
               { "name": "plant_name", "expression": "`plant_name`" },
               { "name": "dc_name", "expression": "`dc_name`" },
               { "name": "freight_cost", "expression": "`freight_cost`" },
@@ -931,7 +991,16 @@
             ], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "table",
-              "encodings": {},
+              "encodings": {
+                "columns": [
+                  { "fieldName": "plant_name", "type": "string", "displayAs": "string", "visible": true, "order": 1, "title": "Plant" },
+                  { "fieldName": "dc_name", "type": "string", "displayAs": "string", "visible": true, "order": 2, "title": "DC" },
+                  { "fieldName": "freight_cost", "type": "float", "displayAs": "number", "numberFormat": "$#,##0.00", "visible": true, "order": 3, "title": "$/ton" },
+                  { "fieldName": "co2_kg_per_ton", "type": "float", "displayAs": "number", "numberFormat": "#,##0.0", "visible": true, "order": 4, "title": "CO₂ kg/ton" }
+                ]
+              },
+              "itemsPerPage": 15,
+              "condensed": true,
               "frame": { "title": "🚚 Top Freight Lanes", "showTitle": true }
             }
           },
