@@ -844,23 +844,8 @@
               { "name": "actual_late", "expression": "`actual_late`" }
             ], "disaggregated": true }}],
             "spec": {
-              "version": 1, "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  { "fieldName": "order_date", "type": "date", "displayAs": "datetime", "visible": true, "order": 1, "title": "Date" },
-                  { "fieldName": "customer_region", "type": "string", "displayAs": "string", "visible": true, "order": 2, "title": "Region" },
-                  { "fieldName": "channel", "type": "string", "displayAs": "string", "visible": true, "order": 3, "title": "Channel" },
-                  { "fieldName": "plant_id", "type": "string", "displayAs": "string", "visible": true, "order": 4, "title": "Plant" },
-                  { "fieldName": "dc_id", "type": "string", "displayAs": "string", "visible": true, "order": 5, "title": "DC" },
-                  { "fieldName": "sku_family", "type": "string", "displayAs": "string", "visible": true, "order": 6, "title": "Family" },
-                  { "fieldName": "units_ordered", "type": "integer", "displayAs": "number", "visible": true, "order": 7, "title": "Units" },
-                  { "fieldName": "days_to_request", "type": "float", "displayAs": "number", "visible": true, "order": 8, "title": "Lead Days" },
-                  { "fieldName": "late_risk_prob", "type": "float", "displayAs": "number", "numberFormat": "0.00", "visible": true, "order": 9, "title": "Risk Prob" },
-                  { "fieldName": "actual_late", "type": "integer", "displayAs": "number", "visible": true, "order": 10, "title": "Was Late?" }
-                ]
-              },
-              "itemsPerPage": 20,
-              "condensed": true,
+              "version": 2, "widgetType": "table",
+              "encodings": {},
               "frame": { "title": "🔥 Highest-Risk Orders (30d)", "showTitle": true }
             }
           },

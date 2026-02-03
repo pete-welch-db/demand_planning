@@ -46,9 +46,6 @@ def render_sidebar(cfg: AppConfig) -> SidebarState:
                 help="When off, the app tries Databricks SQL. Any failure falls back to mock data.",
             )
             st.session_state["use_mock"] = use_mock
-
-            st.markdown("**Target schema**")
-            st.code(f"{cfg.databricks_catalog}.{cfg.databricks_schema}", language="text")
     use_mock = st.session_state.get("use_mock", cfg.default_use_mock)
 
     return SidebarState(view=view, use_mock=use_mock)

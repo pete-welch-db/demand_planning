@@ -452,6 +452,56 @@ h1, h2, h3, h4, h5, h6 {
 [data-testid="stError"] p {
   color: #991b1b !important;
 }
+
+/* Chat message styling - ensure text is readable */
+[data-testid="stChatMessage"] {
+  background-color: #ffffff !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 12px !important;
+}
+
+/* Chat message content text */
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] span,
+[data-testid="stChatMessage"] div,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatMessage"] ul,
+[data-testid="stChatMessage"] ol {
+  color: #1a1a1a !important;
+}
+
+/* Chat message markdown content */
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
+  color: #1a1a1a !important;
+}
+
+/* Assistant messages - slightly different background */
+[data-testid="stChatMessage"][data-testid*="assistant"],
+.stChatMessage:has([data-testid="chatAvatarIcon-assistant"]) {
+  background-color: #f8f9fa !important;
+}
+
+/* User messages */
+[data-testid="stChatMessage"][data-testid*="user"],
+.stChatMessage:has([data-testid="chatAvatarIcon-user"]) {
+  background-color: #ffffff !important;
+}
+
+/* Chat input styling */
+[data-testid="stChatInput"] {
+  background-color: var(--bg-secondary) !important;
+  border-radius: 12px !important;
+}
+
+[data-testid="stChatInput"] textarea {
+  color: #1a1a1a !important;
+  background-color: #ffffff !important;
+}
+
+/* Chat input placeholder */
+[data-testid="stChatInput"] textarea::placeholder {
+  color: #6b7280 !important;
+}
 </style>
 """
 

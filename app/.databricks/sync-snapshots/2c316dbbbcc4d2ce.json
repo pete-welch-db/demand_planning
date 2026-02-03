@@ -3,28 +3,27 @@
   "host": "https://adb-984752964297111.11.azuredatabricks.net",
   "remote_path": "/Workspace/Users/pete.welch@databricks.com/demand_planning/files/app",
   "last_modified_times": {
-    "app.py": "2026-02-03T13:14:37.713735386-05:00",
-    "app.yaml": "2026-02-03T12:22:21.181795169-05:00",
+    "app.py": "2026-02-03T14:47:04.323185145-05:00",
+    "app.yaml": "2026-02-03T14:29:52.873235693-05:00",
     "assets/databricks_mark.svg": "2026-01-28T14:30:07.111405169-05:00",
     "components/header.py": "2026-01-28T14:30:07.111396669-05:00",
     "components/metrics.py": "2026-01-30T12:34:45.029436548-05:00",
     "components/narrative.py": "2026-01-28T14:32:36.20086417-05:00",
-    "components/sidebar.py": "2026-02-03T13:14:28.885503934-05:00",
-    "components/styles.py": "2026-02-03T12:10:19.497830331-05:00",
-    "config.py": "2026-01-30T12:37:23.405352051-05:00",
+    "components/sidebar.py": "2026-02-03T14:46:54.931162424-05:00",
+    "components/styles.py": "2026-02-03T14:36:04.038063071-05:00",
+    "config.py": "2026-02-03T14:31:57.455602813-05:00",
     "data/__init__.py": "2026-01-28T14:23:18.517583705-05:00",
     "data/connection.py": "2026-02-03T12:09:13.487686319-05:00",
-    "data/genie_client.py": "2026-01-28T14:23:18.517594956-05:00",
+    "data/genie_client.py": "2026-02-03T14:42:32.481304858-05:00",
     "data/mock_data.py": "2026-02-03T13:13:26.322047369-05:00",
     "data/queries.py": "2026-02-03T13:13:36.256452942-05:00",
     "data/service.py": "2026-02-03T13:13:43.727863312-05:00",
     "requirements.txt": "2026-02-03T13:03:43.199884109-05:00",
     "views/__init__.py": "2026-01-28T14:23:18.536448122-05:00",
-    "views/assistant.py": "2026-01-29T17:31:01.831002182-05:00",
-    "views/dashboard.py": "2026-01-28T14:38:17.077754218-05:00",
-    "views/landing.py": "2026-01-30T13:40:21.232841795-05:00",
-    "views/network_map.py": "2026-02-03T13:14:23.170615074-05:00",
-    "views/scenarios.py": "2026-01-28T14:38:17.077746718-05:00"
+    "views/assistant.py": "2026-02-03T14:43:17.298068654-05:00",
+    "views/dashboard.py": "2026-02-03T14:46:48.063392621-05:00",
+    "views/landing.py": "2026-02-03T14:34:21.382652784-05:00",
+    "views/scenarios.py": "2026-02-03T14:49:31.79097325-05:00"
   },
   "local_to_remote_names": {
     "app.py": "app.py",
@@ -47,7 +46,6 @@
     "views/assistant.py": "views/assistant.py",
     "views/dashboard.py": "views/dashboard.py",
     "views/landing.py": "views/landing.py",
-    "views/network_map.py": "views/network_map.py",
     "views/scenarios.py": "views/scenarios.py"
   },
   "remote_to_local_names": {
@@ -71,7 +69,6 @@
     "views/assistant.py": "views/assistant.py",
     "views/dashboard.py": "views/dashboard.py",
     "views/landing.py": "views/landing.py",
-    "views/network_map.py": "views/network_map.py",
     "views/scenarios.py": "views/scenarios.py"
   }
 }
