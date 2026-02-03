@@ -2,8 +2,10 @@
   "title": "Demand Planning Control Tower",
   "description": "AI-powered analytics for supply chain visibility, demand forecasting, and operational KPIs. Ask questions about inventory, shipments, forecast accuracy, and sustainability metrics.",
   "tables": [
-    "welch.demand_planning_demo.gold_control_tower_kpis",
-    "welch.demand_planning_demo.gold_freight_kpis",
+    "welch.demand_planning_demo.control_tower_weekly",
+    "welch.demand_planning_demo.kpi_freight_weekly",
+    "welch.demand_planning_demo.kpi_otif_weekly",
+    "welch.demand_planning_demo.kpi_energy_intensity_weekly",
     "welch.demand_planning_demo.weekly_demand_actual",
     "welch.demand_planning_demo.demand_forecast",
     "welch.demand_planning_demo.demand_forecast_future",
@@ -17,7 +19,7 @@
     "welch.demand_planning_demo.mv_forecast_accuracy",
     "welch.demand_planning_demo.mv_late_delivery_risk"
   ],
-  "instructions": "## Role\nSupply chain analyst for ADS (Advanced Drainage Systems). 16 plants and 11 DCs across 5 US regions, with 2-3 years of data.\n\n## IMPORTANT: Use Metric Views First\nFor KPI questions, ALWAYS use the metric views with MEASURE() function:\n- `mv_control_tower_kpis` - OTIF, freight cost, CO2, energy metrics\n- `mv_forecast_accuracy` - MAPE by week/region/family\n- `mv_late_delivery_risk` - Late delivery probability\n\nExample: SELECT MEASURE(`OTIF`) as otif FROM mv_control_tower_kpis WHERE week >= date_sub(current_date(), 90)\n\n## Pre-Aggregated Gold Tables\nFor summaries, use Gold tables (already aggregated):\n- `gold_control_tower_kpis` - Weekly operational KPIs\n- `gold_freight_kpis` - Freight lane analytics\n- `weekly_demand_actual` - Weekly demand by SKU family/region\n\n## Silver Tables (Detail Records)\nOnly use for drill-downs:\n- `silver_erp_orders` - Individual order records\n- `silver_tms_shipments` - Shipment details\n- `silver_inventory_positions` - Daily inventory snapshots\n\n## SQL Formatting\nFor dollar values: FORMAT_NUMBER(value, '$#,##0.00')\nFor percentages: CONCAT(ROUND(value * 100, 1), '%')\n\n## Regions\nNortheast, Southeast, Midwest, SouthCentral, West\n\n## SKU Families\npipe, chambers, structures",
+  "instructions": "## Role\nSupply chain analyst for ADS (Advanced Drainage Systems). 16 plants and 11 DCs across 5 US regions, with 2-3 years of data.\n\n## IMPORTANT: Use Metric Views First\nFor KPI questions, ALWAYS use the metric views with MEASURE() function:\n- `mv_control_tower_kpis` - OTIF, freight cost, CO2, energy metrics\n- `mv_forecast_accuracy` - MAPE by week/region/family\n- `mv_late_delivery_risk` - Late delivery probability\n\nExample: SELECT MEASURE(`OTIF`) as otif FROM mv_control_tower_kpis WHERE week >= date_sub(current_date(), 90)\n\n## Pre-Aggregated Gold Tables\nFor summaries, use Gold tables (already aggregated):\n- `control_tower_weekly` - Weekly operational KPIs by plant/DC/region\n- `kpi_freight_weekly` - Freight cost and CO2 by lane/mode\n- `kpi_otif_weekly` - OTIF by week/region/DC\n- `kpi_energy_intensity_weekly` - Energy per unit by plant\n- `weekly_demand_actual` - Weekly demand by SKU family/region\n\n## Forecast Tables\n- `demand_forecast` - Historical forecast vs actuals\n- `demand_forecast_future` - Future 13-week forecast\n\n## ML Scored Table\n- `order_late_risk_scored_ml` - Orders with late delivery probability\n\n## Silver Tables (Detail Records)\nOnly use for drill-downs:\n- `silver_erp_orders` - Individual order records\n- `silver_tms_shipments` - Shipment details\n- `silver_inventory_positions` - Daily inventory snapshots\n\n## Location Reference\n- `silver_plant_locations` - Plant names, addresses, lat/long\n- `silver_dc_locations` - DC names, addresses, lat/long\n\n## SQL Formatting\nFor dollar values: FORMAT_NUMBER(value, '$#,##0.00')\nFor percentages: CONCAT(ROUND(value * 100, 1), '%')\n\n## Regions\nNortheast, Southeast, Midwest, SouthCentral, West\n\n## SKU Families\npipe, chambers, structures",
   "sample_queries": [
     {
       "question": "What is our current OTIF rate?",
@@ -29,15 +31,19 @@
     },
     {
       "question": "Which orders have the highest late delivery risk?",
-      "sql": "SELECT order_id, customer_region, sku_family, late_prob FROM welch.demand_planning_demo.order_late_risk_scored_ml WHERE late_prob > 0.5 ORDER BY late_prob DESC LIMIT 20"
+      "sql": "SELECT order_id, customer_region, sku_family, late_risk_prob FROM welch.demand_planning_demo.order_late_risk_scored_ml WHERE late_risk_prob > 0.5 ORDER BY late_risk_prob DESC LIMIT 20"
     },
     {
       "question": "What are our top freight lanes by cost?",
-      "sql": "SELECT origin_plant_id, destination_region, SUM(freight_cost_usd) as total_cost, COUNT(*) as shipments FROM welch.demand_planning_demo.gold_freight_kpis GROUP BY origin_plant_id, destination_region ORDER BY total_cost DESC LIMIT 10"
+      "sql": "SELECT plant_id, dc_id, SUM(freight_cost_usd) as total_cost, SUM(total_weight_tons) as total_tons FROM welch.demand_planning_demo.kpi_freight_weekly GROUP BY plant_id, dc_id ORDER BY total_cost DESC LIMIT 10"
     },
     {
       "question": "Show CO2 emissions trend by month",
-      "sql": "SELECT date_trunc('month', week) as month, SUM(co2_kg_total) as total_co2_kg FROM welch.demand_planning_demo.gold_control_tower_kpis GROUP BY 1 ORDER BY 1"
+      "sql": "SELECT date_trunc('month', week) as month, SUM(co2_kg) as total_co2_kg FROM welch.demand_planning_demo.kpi_freight_weekly GROUP BY 1 ORDER BY 1"
+    },
+    {
+      "question": "What is the forecast for next month by region?",
+      "sql": "SELECT region, sku_family, SUM(forecast_units) as forecast FROM welch.demand_planning_demo.demand_forecast_future WHERE week >= current_date() AND week < date_add(current_date(), 28) GROUP BY region, sku_family ORDER BY forecast DESC"
     }
   ]
 }

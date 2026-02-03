@@ -1,0 +1,10 @@
+resources:
+  apps:
+    demand_planning_control_tower:
+      name: "demand-planning-control-tower"
+      description: "Streamlit control tower for demand planning and supply chain visibility"
+      source_code_path: ../../app
+
+      permissions:
+        - level: CAN_VIEW
+          group_name: users
