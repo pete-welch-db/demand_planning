@@ -3,7 +3,7 @@ resources:
     demand_planning_streamlit_app:
       name: "demand-planning-control-tower"
       description: "Streamlit control tower for demand planning and supply chain visibility"
-      source_code_path: ../../app
+      source_code_path: ${workspace.file_path}/app
 
       permissions:
         - level: CAN_USE

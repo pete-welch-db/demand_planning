@@ -139,7 +139,8 @@ WORKSPACE_ROOT=$(databricks bundle summary --target "$TARGET" $PROFILE_FLAG 2>/d
 if [[ -z "$WORKSPACE_ROOT" ]]; then
   WORKSPACE_ROOT="/Workspace/Users/pete.welch@databricks.com/demand_planning"
 fi
-APP_WORKSPACE_PATH="${WORKSPACE_ROOT}/app"
+# DABs puts files in /files/ subdirectory
+APP_WORKSPACE_PATH="${WORKSPACE_ROOT}/files/app"
 
 echo "  Syncing app source to: $APP_WORKSPACE_PATH"
 databricks sync ./app "$APP_WORKSPACE_PATH" $PROFILE_FLAG --full 2>/dev/null || echo "  Note: Sync completed with warnings"

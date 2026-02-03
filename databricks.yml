@@ -18,10 +18,7 @@ variables:
     description: Schema name for all tables
     default: demand_planning_demo
   warehouse_id:
-    description: SQL Warehouse ID for DBSQL/Genie usage (optional)
-    default: ""
-  dashboard_id:
-    description: AI/BI Dashboard ID used by dashboard_task (optional)
+    description: SQL Warehouse ID for DBSQL/Genie usage
     default: ""
   # Service principal for production deployments (optional)
   service_principal_name:
@@ -33,9 +30,6 @@ variables:
   late_risk_model_name:
     description: UC model name used for late-risk scoring/serving
     default: "${var.catalog}.${var.schema}.order_late_risk_model"
-  existing_dlt_pipeline_id:
-    description: Optional. If set, workflows can run an existing DLT pipeline by ID (instead of the bundle-managed pipeline).
-    default: ""
 
 # Include resource definitions from separate files
 include:
@@ -63,9 +57,7 @@ targets:
       catalog: welch
       schema: demand_planning_demo
       warehouse_id: "148ccb90800933a1"
-      dashboard_id: "01f0fd5419f41998aa76722bb82632cb"
-      # Run the existing DLT pipeline already created in the workspace.
-      existing_dlt_pipeline_id: "bd85bd8e-387a-4488-8048-2f7e7dcfadc0"
+      # DLT pipeline and dashboard are now bundle-managed (no hardcoded IDs needed)
     workspace:
       host: https://adb-984752964297111.11.azuredatabricks.net
       # Match the Git repo location in your workspace
