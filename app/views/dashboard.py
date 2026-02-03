@@ -7,6 +7,7 @@ demand analytics, and ML-powered risk scoring.
 from __future__ import annotations
 
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -17,10 +18,16 @@ from data.service import (
     get_control_tower_weekly,
     get_demand_vs_forecast,
     get_mape_by_family_region,
+    get_mape_by_sku,
     get_order_late_risk,
     get_plant_locations,
     get_dc_locations,
     get_freight_lanes,
+    get_order_volume_kpis,
+    get_service_performance_kpis,
+    get_transport_mode_comparison,
+    get_product_family_mix,
+    get_orders_by_channel,
 )
 
 
@@ -93,6 +100,10 @@ def _render_overview_tab(cfg: AppConfig, use_mock: bool) -> None:
     
     # Load KPI data
     ctl = get_control_tower_weekly(cfg, use_mock)
+    order_vol = get_order_volume_kpis(cfg, use_mock)
+    svc_perf = get_service_performance_kpis(cfg, use_mock)
+    transport = get_transport_mode_comparison(cfg, use_mock)
+    product_mix = get_product_family_mix(cfg, use_mock)
     
     if ctl.warning:
         st.info("Using mock data (SQL connection unavailable)")
@@ -110,16 +121,69 @@ def _render_overview_tab(cfg: AppConfig, use_mock: bool) -> None:
     premium = float(latest["premium_freight_pct"].mean()) if "premium_freight_pct" in latest.columns and len(latest) else float("nan")
     co2 = float(latest["co2_kg_per_ton"].mean()) if "co2_kg_per_ton" in latest.columns and len(latest) else float("nan")
 
-    # Compact KPI row
-    col1, col2, col3, col4 = st.columns(4)
+    # Extract new metrics
+    df_order_vol = order_vol.df
+    total_orders = int(df_order_vol["total_orders"].iloc[0]) if len(df_order_vol) else 0
+    unique_customers = int(df_order_vol["unique_customers"].iloc[0]) if len(df_order_vol) else 0
+    
+    df_svc = svc_perf.df
+    perfect_order = float(df_svc["perfect_order_rate"].iloc[0]) if len(df_svc) else float("nan")
+    backorder_rate = float(df_svc["backorder_rate"].iloc[0]) if len(df_svc) else float("nan")
+    cancel_rate = float(df_svc["cancellation_rate"].iloc[0]) if len(df_svc) else float("nan")
+
+    # Section: Core Operational KPIs
+    st.subheader("Core Operational KPIs")
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     with col1:
         st.metric("OTIF Rate", _fmt_pct(otif) if otif == otif else "—")
     with col2:
-        st.metric("Freight $/ton", f"${freight:,.0f}" if freight == freight else "—")
+        st.metric("Perfect Order", _fmt_pct(perfect_order) if perfect_order == perfect_order else "—")
     with col3:
-        st.metric("Premium Freight %", _fmt_pct(premium) if premium == premium else "—")
+        st.metric("Freight $/ton", f"${freight:,.0f}" if freight == freight else "—")
     with col4:
+        st.metric("Premium Freight", _fmt_pct(premium) if premium == premium else "—")
+    with col5:
         st.metric("CO₂ kg/ton", f"{co2:,.1f}" if co2 == co2 else "—")
+    with col6:
+        st.metric("Backorder Rate", _fmt_pct(backorder_rate) if backorder_rate == backorder_rate else "—")
+
+    # Section: Volume & Customer Metrics
+    st.subheader("Volume & Customer Metrics (13 weeks)")
+    vcol1, vcol2, vcol3, vcol4 = st.columns(4)
+    with vcol1:
+        st.metric("Total Orders", f"{total_orders:,}")
+    with vcol2:
+        st.metric("Unique Customers", f"{unique_customers:,}")
+    with vcol3:
+        st.metric("Cancellation Rate", _fmt_pct(cancel_rate) if cancel_rate == cancel_rate else "—")
+    with vcol4:
+        # Product mix summary
+        df_mix = product_mix.df
+        if len(df_mix):
+            top_family = df_mix.iloc[0]["sku_family"] if len(df_mix) else "—"
+            top_pct = float(df_mix.iloc[0]["pct_of_total"]) if len(df_mix) else 0
+            st.metric("Top Product", f"{top_family.title()} ({top_pct:.0f}%)")
+        else:
+            st.metric("Top Product", "—")
+
+    # Section: Transport Mode Comparison
+    df_transport = transport.df
+    if len(df_transport) > 1:
+        st.subheader("Transport Mode Efficiency")
+        tcol1, tcol2 = st.columns(2)
+        with tcol1:
+            st.markdown("**Freight Cost Comparison ($/ton)**")
+            for _, row in df_transport.iterrows():
+                mode = str(row["transport_mode"]).replace("_", " ").title()
+                cost = row["freight_cost_per_ton"]
+                tons = row.get("tons_shipped", 0)
+                st.markdown(f"- **{mode}**: ${cost:,.0f}/ton ({tons:,.0f} tons shipped)")
+        with tcol2:
+            st.markdown("**CO₂ Emissions by Mode (kg/ton)**")
+            for _, row in df_transport.iterrows():
+                mode = str(row["transport_mode"]).replace("_", " ").title()
+                co2_val = row["co2_kg_per_ton"]
+                st.markdown(f"- **{mode}**: {co2_val:.1f} kg/ton")
 
     # Embedded Databricks Dashboard
     if cfg.dashboard_embed_url:
@@ -243,6 +307,11 @@ def _create_network_map(plants_df: pd.DataFrame, dcs_df: pd.DataFrame, lanes_df:
     """Create an interactive Plotly map with facilities and freight lanes."""
     fig = go.Figure()
 
+    # Databricks brand colors for high contrast
+    PLANT_COLOR = "#FF3621"  # Lava 600
+    DC_COLOR = "#0B1220"     # Navy 900
+    LABEL_COLOR = "#0B1220"  # Navy 900 for maximum contrast
+    
     # Add freight lane lines (before markers so they appear behind)
     if len(lanes_df):
         min_cost = lanes_df["freight_cost_per_ton"].min()
@@ -251,8 +320,9 @@ def _create_network_map(plants_df: pd.DataFrame, dcs_df: pd.DataFrame, lanes_df:
 
         for _, lane in lanes_df.iterrows():
             cost_normalized = (lane["freight_cost_per_ton"] - min_cost) / cost_range
-            r = int(50 + 205 * cost_normalized)
-            g = int(180 - 130 * cost_normalized)
+            # Green to red gradient (low to high cost)
+            r = int(50 + 180 * cost_normalized)
+            g = int(160 - 100 * cost_normalized)
             b = int(50)
             line_color = f"rgb({r},{g},{b})"
             
@@ -264,21 +334,30 @@ def _create_network_map(plants_df: pd.DataFrame, dcs_df: pd.DataFrame, lanes_df:
                 lat=[lane["plant_lat"], lane["dc_lat"]],
                 mode="lines",
                 line=dict(width=width, color=line_color),
-                opacity=0.7,
+                opacity=0.8,
                 hoverinfo="text",
-                text=f"{lane['plant_name']} → {lane['dc_name']}<br>Freight: ${lane['freight_cost_per_ton']:.2f}/ton<br>CO₂: {lane['co2_kg_per_ton']:.1f} kg/ton",
+                text=f"<b>{lane['plant_name']} → {lane['dc_name']}</b><br>Freight: ${lane['freight_cost_per_ton']:.2f}/ton<br>CO₂: {lane['co2_kg_per_ton']:.1f} kg/ton",
                 showlegend=False,
             ))
 
-    # Add plant markers
+    # Add plant markers with high-contrast labels
     fig.add_trace(go.Scattergeo(
         lon=plants_df["plant_lon"],
         lat=plants_df["plant_lat"],
         mode="markers+text",
-        marker=dict(size=14, color=THEME["accent_primary"], symbol="circle", line=dict(width=2, color="white")),
-        text=plants_df["plant_id"],
+        marker=dict(
+            size=16, 
+            color=PLANT_COLOR, 
+            symbol="circle", 
+            line=dict(width=3, color="white")
+        ),
+        text=plants_df["plant_name"].str.replace("ADS ", "").str.replace(" Plant", "").str.upper(),
         textposition="top center",
-        textfont=dict(size=9, color=THEME["text_primary"]),
+        textfont=dict(
+            size=11, 
+            color=LABEL_COLOR, 
+            family="DM Sans, Arial, sans-serif",
+        ),
         hoverinfo="text",
         hovertext=plants_df.apply(
             lambda r: f"<b>{r['plant_name']}</b><br>{r['plant_city']}, {r['plant_state']}<br>Region: {r['plant_region']}",
@@ -287,15 +366,24 @@ def _create_network_map(plants_df: pd.DataFrame, dcs_df: pd.DataFrame, lanes_df:
         name="Plants",
     ))
 
-    # Add DC markers
+    # Add DC markers with high-contrast labels
     fig.add_trace(go.Scattergeo(
         lon=dcs_df["dc_lon"],
         lat=dcs_df["dc_lat"],
         mode="markers+text",
-        marker=dict(size=12, color=THEME["navy_800"], symbol="square", line=dict(width=2, color="white")),
-        text=dcs_df["dc_id"],
+        marker=dict(
+            size=14, 
+            color=DC_COLOR, 
+            symbol="square", 
+            line=dict(width=3, color="white")
+        ),
+        text=dcs_df["dc_name"].str.replace("ADS ", "").str.replace(" Distribution", "").str.replace(" Facility", "").str.replace(" Yard", "").str.replace(" Logistics", "").str.upper(),
         textposition="top center",
-        textfont=dict(size=9, color=THEME["text_primary"]),
+        textfont=dict(
+            size=10, 
+            color=LABEL_COLOR, 
+            family="DM Sans, Arial, sans-serif",
+        ),
         hoverinfo="text",
         hovertext=dcs_df.apply(
             lambda r: f"<b>{r['dc_name']}</b><br>{r['dc_city']}, {r['dc_state']}<br>Region: {r['dc_region']}",
@@ -309,27 +397,39 @@ def _create_network_map(plants_df: pd.DataFrame, dcs_df: pd.DataFrame, lanes_df:
             scope="usa",
             projection_type="albers usa",
             showland=True,
-            landcolor="#F4F3EE",
+            landcolor="#E8E6E1",  # Slightly darker for better label contrast
             showlakes=True,
-            lakecolor="white",
+            lakecolor="#F8F8F8",
             showsubunits=True,
-            subunitcolor="#E6E4E0",
-            countrycolor="#E6E4E0",
-            bgcolor="rgba(0,0,0,0)",
+            subunitcolor="#D0CEC9",  # Darker state borders
+            countrycolor="#D0CEC9",
+            bgcolor="white",
         ),
-        margin=dict(l=0, r=0, t=40, b=0),
-        height=480,
-        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor="rgba(255,255,255,0.8)"),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=0, r=0, t=50, b=0),
+        height=500,
+        legend=dict(
+            yanchor="top", 
+            y=0.99, 
+            xanchor="left", 
+            x=0.01, 
+            bgcolor="rgba(255,255,255,0.95)",
+            bordercolor="#E6E4E0",
+            borderwidth=1,
+            font=dict(size=12, color=LABEL_COLOR),
+        ),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
     )
 
+    # Title annotation with proper contrast
     fig.add_annotation(
-        text="<b>ADS Supply Chain Network</b> | <span style='color:#FF3621'>● Plants</span> | <span style='color:#111C33'>■ DCs</span> | Lines colored by freight cost (green=low, red=high)",
+        text="<b>ADS Supply Chain Network</b>  |  <span style='color:#FF3621'>● Plants</span>  |  <span style='color:#0B1220'>■ DCs</span>  |  Lines: green=low cost, red=high cost",
         xref="paper", yref="paper",
-        x=0.5, y=1.02,
+        x=0.5, y=1.06,
         showarrow=False,
-        font=dict(size=12),
+        font=dict(size=13, color=LABEL_COLOR, family="DM Sans, Arial, sans-serif"),
+        bgcolor="rgba(255,255,255,0.9)",
+        borderpad=6,
     )
 
     return fig
@@ -339,13 +439,70 @@ def _create_network_map(plants_df: pd.DataFrame, dcs_df: pd.DataFrame, lanes_df:
 # TAB 3: SERVICE & OTIF
 # =============================================================================
 def _render_otif_tab(cfg: AppConfig, use_mock: bool) -> None:
-    """OTIF trend tab."""
+    """OTIF trend and service performance tab."""
     ctl = get_control_tower_weekly(cfg, use_mock)
+    svc_perf = get_service_performance_kpis(cfg, use_mock)
+    channels = get_orders_by_channel(cfg, use_mock)
+    
     df_ctl = ctl.df.copy()
+    df_svc = svc_perf.df
+    df_channels = channels.df
     
     if "week" in df_ctl.columns:
         df_ctl["week"] = pd.to_datetime(df_ctl["week"])
 
+    # Service Performance KPIs
+    st.subheader("Service Performance Metrics (13 weeks)")
+    if len(df_svc):
+        perfect_order = float(df_svc["perfect_order_rate"].iloc[0])
+        backorder_rate = float(df_svc["backorder_rate"].iloc[0])
+        cancel_rate = float(df_svc["cancellation_rate"].iloc[0])
+        
+        sc1, sc2, sc3 = st.columns(3)
+        with sc1:
+            st.metric("Perfect Order Rate", _fmt_pct(perfect_order), help="Orders delivered on-time, in-full, without cancellation or backorder")
+        with sc2:
+            st.metric("Backorder Rate", _fmt_pct(backorder_rate), help="Percentage of orders with backorder status")
+        with sc3:
+            st.metric("Cancellation Rate", _fmt_pct(cancel_rate), help="Percentage of orders cancelled")
+
+    # Channel Performance
+    if len(df_channels):
+        st.subheader("OTIF by Sales Channel")
+        render_chart_annotation(
+            title="What to notice",
+            body="Compare OTIF performance across sales channels. DOT and contractor channels often have tighter SLAs.",
+        )
+        
+        ccol1, ccol2 = st.columns([2, 1])
+        with ccol1:
+            # Bar chart of OTIF by channel
+            fig = px.bar(
+                df_channels.sort_values("otif_rate", ascending=True),
+                x="otif_rate",
+                y="sales_channel",
+                orientation="h",
+                title="OTIF Rate by Sales Channel",
+                labels={"otif_rate": "OTIF Rate", "sales_channel": "Channel"},
+            )
+            fig.update_layout(
+                xaxis_tickformat=".0%",
+                xaxis_range=[0.8, 1.0],
+                height=250,
+            )
+            fig.update_traces(marker_color=THEME.get("brand_red", "#FF3621"))
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with ccol2:
+            st.markdown("**Channel Volume**")
+            for _, row in df_channels.iterrows():
+                channel = str(row["sales_channel"]).upper()
+                orders = int(row["order_count"])
+                otif = float(row["otif_rate"])
+                st.markdown(f"**{channel}**: {orders:,} orders ({_fmt_pct(otif)} OTIF)")
+
+    st.divider()
+    
     st.subheader("OTIF Trend by Region")
     render_chart_annotation(
         title="What to notice",
@@ -421,28 +578,191 @@ def _render_demand_tab(cfg: AppConfig, use_mock: bool) -> None:
 
 
 # =============================================================================
-# TAB 5: ACCURACY HOTSPOTS
+# TAB 5: ACCURACY HOTSPOTS (with drill-down)
 # =============================================================================
 def _render_accuracy_tab(cfg: AppConfig, use_mock: bool) -> None:
-    """Forecast accuracy hotspots tab."""
+    """Forecast accuracy hotspots tab with SKU drill-down."""
     mape = get_mape_by_family_region(cfg, use_mock)
     df_mape = mape.df
 
     st.subheader("Forecast Accuracy Hotspots (MAPE)")
     render_chart_annotation(
         title="What to notice",
-        body="Higher MAPE indicates less accurate forecasts. Focus improvement efforts on high-MAPE SKU families and regions.",
+        body="Click a product family below to drill down to individual SKU accuracy. Higher MAPE = less accurate forecasts.",
     )
-    st.caption("Average MAPE by SKU family and region (lower is better)")
 
-    if len(df_mape):
-        st.dataframe(df_mape, use_container_width=True, hide_index=True)
-    else:
+    if len(df_mape) == 0:
         st.info("No MAPE data available yet.")
+        return
+
+    # Aggregate by family for the clickable summary
+    if "sku_family" in df_mape.columns and "avg_mape" in df_mape.columns:
+        family_summary = (
+            df_mape.groupby("sku_family", as_index=False)["avg_mape"]
+            .mean()
+            .sort_values("avg_mape", ascending=False)
+        )
+        family_summary["avg_mape_pct"] = (family_summary["avg_mape"] * 100).round(1).astype(str) + "%"
+    else:
+        family_summary = df_mape
+
+    # Create clickable family cards
+    st.markdown("#### Select Product Family to Drill Down")
+    
+    families = family_summary["sku_family"].tolist() if "sku_family" in family_summary.columns else []
+    
+    if families:
+        # Create columns for family buttons
+        cols = st.columns(len(families))
+        
+        # Initialize session state for selected family
+        if "selected_sku_family" not in st.session_state:
+            st.session_state.selected_sku_family = None
+        
+        for i, fam in enumerate(families):
+            mape_val = family_summary[family_summary["sku_family"] == fam]["avg_mape"].iloc[0]
+            mape_pct = f"{mape_val * 100:.1f}%"
+            
+            # Color based on MAPE severity
+            if mape_val >= 0.25:
+                color = "#B42318"  # Danger
+                bg = "#FEE2E2"
+            elif mape_val >= 0.15:
+                color = "#D97706"  # Warning  
+                bg = "#FEF3C7"
+            else:
+                color = "#067647"  # Success
+                bg = "#D1FAE5"
+            
+            with cols[i]:
+                # Custom styled button
+                is_selected = st.session_state.selected_sku_family == fam
+                border = f"3px solid {THEME['accent_primary']}" if is_selected else f"1px solid {THEME['border_color']}"
+                
+                st.markdown(f"""
+                <div style="
+                    background: {bg}; 
+                    border: {border}; 
+                    border-radius: 12px; 
+                    padding: 16px; 
+                    text-align: center;
+                    cursor: pointer;
+                    margin-bottom: 8px;
+                ">
+                    <p style="font-size: 1.5rem; font-weight: 700; color: {color}; margin: 0;">{mape_pct}</p>
+                    <p style="font-size: 0.9rem; font-weight: 600; color: {THEME['text_primary']}; margin: 4px 0 0 0; text-transform: capitalize;">{fam}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button(f"View {fam.title()} SKUs", key=f"btn_{fam}", use_container_width=True):
+                    st.session_state.selected_sku_family = fam
+                    st.rerun()
+
+    # Show family x region heatmap
+    st.markdown("#### MAPE by Family × Region")
+    st.dataframe(
+        df_mape.pivot_table(index="sku_family", columns="region", values="avg_mape", aggfunc="mean")
+        .style.format("{:.1%}")
+        .background_gradient(cmap="RdYlGn_r"),
+        use_container_width=True,
+    )
+
+    # Drill-down section
+    st.markdown("---")
+    
+    if st.session_state.get("selected_sku_family"):
+        selected_family = st.session_state.selected_sku_family
+        
+        st.markdown(f"### 🔍 SKU Detail: **{selected_family.title()}**")
+        
+        # Load SKU-level data
+        sku_result = get_mape_by_sku(cfg, use_mock, selected_family)
+        df_sku = sku_result.df
+        
+        if len(df_sku):
+            # Summary metrics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("SKUs Analyzed", len(df_sku["sku_id"].unique()) if "sku_id" in df_sku.columns else len(df_sku))
+            with col2:
+                avg_mape = df_sku["avg_mape"].mean() if "avg_mape" in df_sku.columns else 0
+                st.metric("Avg MAPE", f"{avg_mape:.1%}")
+            with col3:
+                worst_mape = df_sku["avg_mape"].max() if "avg_mape" in df_sku.columns else 0
+                st.metric("Worst MAPE", f"{worst_mape:.1%}")
+            with col4:
+                best_mape = df_sku["avg_mape"].min() if "avg_mape" in df_sku.columns else 0
+                st.metric("Best MAPE", f"{best_mape:.1%}")
+            
+            # Region filter
+            regions = ["All Regions"] + sorted(df_sku["region"].unique().tolist()) if "region" in df_sku.columns else ["All Regions"]
+            selected_region = st.selectbox("Filter by Region", regions, key="sku_region_filter")
+            
+            filtered_sku = df_sku.copy()
+            if selected_region != "All Regions":
+                filtered_sku = filtered_sku[filtered_sku["region"] == selected_region]
+            
+            # SKU detail table
+            st.markdown("#### Individual SKU Performance")
+            
+            display_cols = ["sku_id", "sku_name", "region", "avg_mape", "weeks_measured"]
+            display_cols = [c for c in display_cols if c in filtered_sku.columns]
+            
+            # Format for display
+            display_df = filtered_sku[display_cols].copy()
+            if "avg_mape" in display_df.columns:
+                display_df["avg_mape"] = display_df["avg_mape"].apply(lambda x: f"{x:.1%}")
+            
+            st.dataframe(
+                display_df.rename(columns={
+                    "sku_id": "Part Number",
+                    "sku_name": "Description",
+                    "region": "Region",
+                    "avg_mape": "MAPE",
+                    "weeks_measured": "Weeks"
+                }),
+                use_container_width=True,
+                hide_index=True,
+                height=350,
+            )
+            
+            # Action buttons
+            st.markdown("#### 🎯 Take Action")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if st.button("📊 Run What-If Scenario", type="primary", use_container_width=True):
+                    # Store context for scenarios page
+                    st.session_state.scenario_context = {
+                        "sku_family": selected_family,
+                        "avg_mape": avg_mape,
+                        "worst_skus": filtered_sku.head(5)["sku_id"].tolist() if "sku_id" in filtered_sku.columns else []
+                    }
+                    st.info(f"💡 Navigate to **What-If Scenarios** page (in sidebar) to model accuracy improvements for {selected_family}")
+            
+            with col2:
+                if st.button("📥 Export SKU Data", use_container_width=True):
+                    csv = filtered_sku.to_csv(index=False)
+                    st.download_button(
+                        "Download CSV",
+                        csv,
+                        f"mape_{selected_family}_skus.csv",
+                        "text/csv",
+                        key="download_sku_csv"
+                    )
+            
+            with col3:
+                if st.button("❌ Clear Selection", use_container_width=True):
+                    st.session_state.selected_sku_family = None
+                    st.rerun()
+        else:
+            st.info(f"No SKU-level data available for {selected_family}.")
+    else:
+        st.info("👆 Click a product family above to view individual SKU accuracy metrics")
 
     render_action_hint(
         title="Action this enables",
-        body="Prioritize demand sensing improvements and planner attention on the highest-error family/region combinations.",
+        body="Identify specific part numbers with poor forecast accuracy. Use the What-If Scenarios to model improvement impact and prioritize demand sensing investments.",
     )
 
 

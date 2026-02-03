@@ -120,6 +120,76 @@ def mape_by_family_region_mock() -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values("avg_mape", ascending=False)
 
 
+# SKU part numbers by family (realistic ADS-style naming)
+SKU_PARTS = {
+    "pipe": [
+        {"sku_id": "PP-4-100", "sku_name": "4\" Corrugated Pipe 100ft"},
+        {"sku_id": "PP-6-100", "sku_name": "6\" Corrugated Pipe 100ft"},
+        {"sku_id": "PP-8-100", "sku_name": "8\" Corrugated Pipe 100ft"},
+        {"sku_id": "PP-10-20", "sku_name": "10\" Corrugated Pipe 20ft"},
+        {"sku_id": "PP-12-20", "sku_name": "12\" Corrugated Pipe 20ft"},
+        {"sku_id": "PP-15-20", "sku_name": "15\" Corrugated Pipe 20ft"},
+        {"sku_id": "PP-18-20", "sku_name": "18\" Corrugated Pipe 20ft"},
+        {"sku_id": "PP-24-20", "sku_name": "24\" Corrugated Pipe 20ft"},
+        {"sku_id": "SP-4-10", "sku_name": "4\" Solid Pipe 10ft"},
+        {"sku_id": "SP-6-10", "sku_name": "6\" Solid Pipe 10ft"},
+    ],
+    "chambers": [
+        {"sku_id": "SC3-STD", "sku_name": "StormTech SC-310 Chamber"},
+        {"sku_id": "SC4-STD", "sku_name": "StormTech SC-450 Chamber"},
+        {"sku_id": "SC7-STD", "sku_name": "StormTech SC-740 Chamber"},
+        {"sku_id": "MC35-STD", "sku_name": "StormTech MC-3500 Chamber"},
+        {"sku_id": "MC45-STD", "sku_name": "StormTech MC-4500 Chamber"},
+        {"sku_id": "DC78-STD", "sku_name": "StormTech DC-780 Chamber"},
+        {"sku_id": "EC-END", "sku_name": "End Cap Assembly"},
+        {"sku_id": "EC-ISOL", "sku_name": "Isolator Row Assembly"},
+    ],
+    "structures": [
+        {"sku_id": "NDS-12", "sku_name": "12\" Nyloplast Drain"},
+        {"sku_id": "NDS-18", "sku_name": "18\" Nyloplast Drain"},
+        {"sku_id": "NDS-24", "sku_name": "24\" Nyloplast Drain"},
+        {"sku_id": "CB-18", "sku_name": "18\" Catch Basin"},
+        {"sku_id": "CB-24", "sku_name": "24\" Catch Basin"},
+        {"sku_id": "CB-30", "sku_name": "30\" Catch Basin"},
+        {"sku_id": "MH-48", "sku_name": "48\" Manhole"},
+        {"sku_id": "MH-60", "sku_name": "60\" Manhole"},
+    ],
+}
+
+
+def mape_by_sku_mock(sku_family: str = None) -> pd.DataFrame:
+    """Generate mock SKU-level MAPE data."""
+    random.seed(42)
+    rows = []
+    
+    families_to_use = [sku_family] if sku_family else FAMILIES
+    
+    for fam in families_to_use:
+        if fam not in SKU_PARTS:
+            continue
+        # Get base MAPE for family (from family-level mock)
+        base_mape = {"pipe": 0.12, "chambers": 0.18, "structures": 0.22}[fam]
+        
+        for sku in SKU_PARTS[fam]:
+            for reg in REGIONS:
+                # Vary MAPE by SKU and region
+                sku_adj = random.gauss(0, 0.04)
+                reg_adj = {"Northeast": -0.02, "Southeast": 0.01, "Midwest": -0.01, "SouthCentral": 0.02, "West": 0.0}[reg]
+                mape = max(0.03, min(0.45, base_mape + sku_adj + reg_adj + random.gauss(0, 0.03)))
+                weeks = random.randint(8, 52)
+                
+                rows.append({
+                    "sku_id": sku["sku_id"],
+                    "sku_name": sku["sku_name"],
+                    "sku_family": fam,
+                    "region": reg,
+                    "avg_mape": round(mape, 4),
+                    "weeks_measured": weeks,
+                })
+    
+    return pd.DataFrame(rows).sort_values("avg_mape", ascending=False)
+
+
 def order_late_risk_mock(n_rows: int = 2000) -> pd.DataFrame:
     random.seed(13)
     rows = []
@@ -218,4 +288,50 @@ def freight_lanes_mock() -> pd.DataFrame:
             })
     
     return pd.DataFrame(rows).sort_values("freight_cost_per_ton", ascending=False)
+
+
+def order_volume_kpis_mock() -> pd.DataFrame:
+    """Mock order volume and customer metrics (13 weeks)."""
+    return pd.DataFrame([{
+        "total_orders": 82_275,  # ~329,100 / 4 quarters
+        "unique_customers": 1_245,
+        "sales_channels": 4,
+        "total_units_ordered": 2_600_000,
+    }])
+
+
+def service_performance_kpis_mock() -> pd.DataFrame:
+    """Mock service performance metrics."""
+    return pd.DataFrame([{
+        "perfect_order_rate": 0.912,
+        "cancellation_rate": 0.020,
+        "backorder_rate": 0.078,
+    }])
+
+
+def transport_mode_comparison_mock() -> pd.DataFrame:
+    """Mock transport mode cost and CO2 comparison."""
+    return pd.DataFrame([
+        {"transport_mode": "own_fleet", "freight_cost_per_ton": 408.0, "co2_kg_per_ton": 59.73, "tons_shipped": 145000},
+        {"transport_mode": "carrier", "freight_cost_per_ton": 508.0, "co2_kg_per_ton": 70.13, "tons_shipped": 87000},
+    ])
+
+
+def product_family_mix_mock() -> pd.DataFrame:
+    """Mock product family volume distribution."""
+    return pd.DataFrame([
+        {"sku_family": "pipe", "total_units": 2_210_000, "pct_of_total": 85.0},
+        {"sku_family": "chambers", "total_units": 260_000, "pct_of_total": 10.0},
+        {"sku_family": "structures", "total_units": 130_000, "pct_of_total": 5.0},
+    ])
+
+
+def orders_by_channel_mock() -> pd.DataFrame:
+    """Mock orders and OTIF by sales channel."""
+    return pd.DataFrame([
+        {"sales_channel": "distributor", "order_count": 35_000, "units_ordered": 1_100_000, "otif_rate": 0.94},
+        {"sales_channel": "contractor", "order_count": 28_000, "units_ordered": 880_000, "otif_rate": 0.91},
+        {"sales_channel": "DOT", "order_count": 12_000, "units_ordered": 420_000, "otif_rate": 0.89},
+        {"sales_channel": "ag", "order_count": 7_275, "units_ordered": 200_000, "otif_rate": 0.93},
+    ])
 

@@ -23,10 +23,10 @@ THEME = {
     "accent_secondary": "#FF5F46",  # Lava 500 (hover)
     "navy_900": "#0B1220",
     "navy_800": "#111C33",
-    # Text + borders
-    "text_primary": "#111827",
-    "text_secondary": "rgba(17, 24, 39, 0.72)",
-    "border_color": "#E6E4E0",
+    # Text + borders - HIGH CONTRAST
+    "text_primary": "#0B1220",      # Navy 900 for maximum contrast
+    "text_secondary": "#3D4654",    # Dark gray (solid, not transparent)
+    "border_color": "#D0CEC9",      # Slightly darker borders
     "grid": "rgba(17, 24, 39, 0.10)",
     "shadow": "0 1px 3px rgba(16,24,40,0.08)",
     "radius_px": 10,

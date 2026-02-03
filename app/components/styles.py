@@ -323,11 +323,27 @@ button[data-baseweb="tab"][aria-selected="true"]{
 
 /* Charts: render on card surface (improves contrast on Oat background) */
 div[data-testid="stPlotlyChart"]{
-  background: var(--card-bg);
+  background: #FFFFFF;
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 8px 10px;
+  padding: 12px 14px;
+}
+
+/* Plotly chart text - ensure high contrast */
+div[data-testid="stPlotlyChart"] .gtitle,
+div[data-testid="stPlotlyChart"] .xtitle,
+div[data-testid="stPlotlyChart"] .ytitle,
+div[data-testid="stPlotlyChart"] .legendtext,
+div[data-testid="stPlotlyChart"] .annotation-text {
+  fill: var(--navy-900) !important;
+  color: var(--navy-900) !important;
+}
+
+/* Ensure tick labels are visible */
+div[data-testid="stPlotlyChart"] .xtick text,
+div[data-testid="stPlotlyChart"] .ytick text {
+  fill: var(--navy-800) !important;
 }
 
 /* Tab narrative components (required per playbook) */

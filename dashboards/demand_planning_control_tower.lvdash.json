@@ -46,6 +46,7 @@
         "       MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit, ",
         "       MEASURE(`Premium freight %`) AS premium_freight_pct ",
         "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "WHERE ({{ selected_region }} IS NULL OR region = {{ selected_region }}) ",
         "GROUP BY week ",
         "ORDER BY week"
       ]
@@ -64,12 +65,33 @@
       ]
     },
     {
+      "name": "region_list",
+      "displayName": "Region List",
+      "queryLines": [
+        "SELECT DISTINCT region FROM welch.demand_planning_demo.mv_control_tower_kpis ORDER BY region"
+      ]
+    },
+    {
+      "name": "sust_kpi_snapshot",
+      "displayName": "Sustainability KPI Snapshot (filtered)",
+      "queryLines": [
+        "SELECT MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton, ",
+        "       MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit, ",
+        "       MEASURE(`Premium freight %`) AS premium_freight_pct, ",
+        "       MEASURE(`Freight $/ton`) AS freight_cost_per_ton ",
+        "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "  AND ({{ selected_region }} IS NULL OR region = {{ selected_region }})"
+      ]
+    },
+    {
       "name": "energy_by_plant",
       "displayName": "Energy by Plant",
       "queryLines": [
         "SELECT plant_id, MEASURE(`Energy kWh/unit`) AS energy_kwh_per_unit ",
         "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
         "WHERE week >= date_sub(current_date(), 91) ",
+        "  AND ({{ selected_region }} IS NULL OR region = {{ selected_region }}) ",
         "GROUP BY plant_id ",
         "ORDER BY energy_kwh_per_unit DESC"
       ]
@@ -95,6 +117,8 @@
       "queryLines": [
         "SELECT week, MEASURE(`MAPE`) AS mape ",
         "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
+        "WHERE ({{ fc_region }} IS NULL OR region = {{ fc_region }}) ",
+        "  AND ({{ fc_sku_family }} IS NULL OR sku_family = {{ fc_sku_family }}) ",
         "GROUP BY week ",
         "ORDER BY week"
       ]
@@ -106,8 +130,112 @@
         "SELECT sku_family, region, MEASURE(`MAPE`) AS mape ",
         "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
         "WHERE week >= date_sub(current_date(), 91) ",
+        "  AND ({{ fc_region }} IS NULL OR region = {{ fc_region }}) ",
+        "  AND ({{ fc_sku_family }} IS NULL OR sku_family = {{ fc_sku_family }}) ",
         "GROUP BY sku_family, region ",
         "ORDER BY mape DESC"
+      ]
+    },
+    {
+      "name": "fc_region_list",
+      "displayName": "Forecast Region List",
+      "queryLines": [
+        "SELECT DISTINCT region FROM welch.demand_planning_demo.mv_forecast_accuracy ORDER BY region"
+      ]
+    },
+    {
+      "name": "fc_sku_family_list",
+      "displayName": "Forecast SKU Family List",
+      "queryLines": [
+        "SELECT DISTINCT sku_family FROM welch.demand_planning_demo.mv_forecast_accuracy ORDER BY sku_family"
+      ]
+    },
+    {
+      "name": "fc_kpi_snapshot",
+      "displayName": "Forecast KPI Snapshot (filtered)",
+      "queryLines": [
+        "SELECT MEASURE(`MAPE`) AS mape, ",
+        "       COUNT(DISTINCT week) AS weeks_analyzed, ",
+        "       COUNT(DISTINCT CONCAT(sku_family, region)) AS combinations ",
+        "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "  AND ({{ fc_region }} IS NULL OR region = {{ fc_region }}) ",
+        "  AND ({{ fc_sku_family }} IS NULL OR sku_family = {{ fc_sku_family }})"
+      ]
+    },
+    {
+      "name": "mape_by_region",
+      "displayName": "MAPE by Region",
+      "queryLines": [
+        "SELECT region, MEASURE(`MAPE`) AS mape ",
+        "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "  AND ({{ fc_sku_family }} IS NULL OR sku_family = {{ fc_sku_family }}) ",
+        "GROUP BY region ",
+        "ORDER BY mape DESC"
+      ]
+    },
+    {
+      "name": "mape_by_family",
+      "displayName": "MAPE by Product Family",
+      "queryLines": [
+        "SELECT sku_family, MEASURE(`MAPE`) AS mape ",
+        "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "  AND ({{ fc_region }} IS NULL OR region = {{ fc_region }}) ",
+        "GROUP BY sku_family ",
+        "ORDER BY mape DESC"
+      ]
+    },
+    {
+      "name": "forecast_bias",
+      "displayName": "Forecast Bias Analysis",
+      "queryLines": [
+        "SELECT a.week, a.sku_family, a.region, ",
+        "       SUM(a.actual_units) AS actual_units, ",
+        "       SUM(f.forecast_units) AS forecast_units, ",
+        "       SUM(f.forecast_units) - SUM(a.actual_units) AS bias, ",
+        "       CASE WHEN SUM(a.actual_units) > 0 THEN ",
+        "         ROUND((SUM(f.forecast_units) - SUM(a.actual_units)) / SUM(a.actual_units) * 100, 1) ",
+        "       ELSE 0 END AS bias_pct ",
+        "FROM welch.demand_planning_demo.weekly_demand_actual a ",
+        "LEFT JOIN welch.demand_planning_demo.demand_forecast f ",
+        "  USING (week, sku_family, region) ",
+        "WHERE a.week >= date_sub(current_date(), 91) ",
+        "  AND ({{ fc_region }} IS NULL OR a.region = {{ fc_region }}) ",
+        "  AND ({{ fc_sku_family }} IS NULL OR a.sku_family = {{ fc_sku_family }}) ",
+        "GROUP BY a.week, a.sku_family, a.region ",
+        "ORDER BY a.week"
+      ]
+    },
+    {
+      "name": "forecast_bias_summary",
+      "displayName": "Forecast Bias Summary",
+      "queryLines": [
+        "SELECT ",
+        "  SUM(CASE WHEN f.forecast_units > a.actual_units THEN 1 ELSE 0 END) AS over_forecast_count, ",
+        "  SUM(CASE WHEN f.forecast_units < a.actual_units THEN 1 ELSE 0 END) AS under_forecast_count, ",
+        "  ROUND(AVG((f.forecast_units - a.actual_units) / NULLIF(a.actual_units, 0) * 100), 1) AS avg_bias_pct ",
+        "FROM welch.demand_planning_demo.weekly_demand_actual a ",
+        "LEFT JOIN welch.demand_planning_demo.demand_forecast f ",
+        "  USING (week, sku_family, region) ",
+        "WHERE a.week >= date_sub(current_date(), 91) ",
+        "  AND ({{ fc_region }} IS NULL OR a.region = {{ fc_region }}) ",
+        "  AND ({{ fc_sku_family }} IS NULL OR a.sku_family = {{ fc_sku_family }})"
+      ]
+    },
+    {
+      "name": "worst_forecasts",
+      "displayName": "Worst Forecast Combinations",
+      "queryLines": [
+        "SELECT sku_family, region, MEASURE(`MAPE`) AS mape ",
+        "FROM welch.demand_planning_demo.mv_forecast_accuracy ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "  AND ({{ fc_region }} IS NULL OR region = {{ fc_region }}) ",
+        "  AND ({{ fc_sku_family }} IS NULL OR sku_family = {{ fc_sku_family }}) ",
+        "GROUP BY sku_family, region ",
+        "ORDER BY mape DESC ",
+        "LIMIT 10"
       ]
     },
     {
@@ -169,6 +297,8 @@
         "LEFT JOIN welch.demand_planning_demo.demand_forecast f ",
         "  USING (week, sku_family, region) ",
         "WHERE a.week >= date_sub(current_date(), 180) ",
+        "  AND ({{ fc_region }} IS NULL OR a.region = {{ fc_region }}) ",
+        "  AND ({{ fc_sku_family }} IS NULL OR a.sku_family = {{ fc_sku_family }}) ",
         "ORDER BY a.week"
       ]
     },
@@ -206,6 +336,7 @@
         "       MEASURE(`CO2 kg/ton`) AS co2_impact ",
         "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
         "WHERE week >= date_sub(current_date(), 91) ",
+        "  AND ({{ selected_region }} IS NULL OR region = {{ selected_region }}) ",
         "GROUP BY plant_id, dc_id ",
         "HAVING MEASURE(`Premium freight %`) > 0.05 ",
         "ORDER BY premium_freight_pct DESC ",
@@ -297,6 +428,71 @@
         "ORDER BY l.freight_cost DESC ",
         "LIMIT 15"
       ]
+    },
+    {
+      "name": "order_volume_kpis",
+      "displayName": "Order Volume KPIs (13w)",
+      "queryLines": [
+        "SELECT COUNT(*) AS total_orders, ",
+        "       COUNT(DISTINCT customer_id) AS unique_customers, ",
+        "       COUNT(DISTINCT sales_channel) AS sales_channels, ",
+        "       SUM(units_ordered) AS total_units_ordered ",
+        "FROM welch.demand_planning_demo.silver_orders ",
+        "WHERE order_date >= date_sub(current_date(), 91)"
+      ]
+    },
+    {
+      "name": "service_performance_kpis",
+      "displayName": "Service Performance KPIs (13w)",
+      "queryLines": [
+        "SELECT ",
+        "  ROUND(AVG(CASE WHEN is_cancelled = FALSE AND is_backorder = FALSE AND actual_late = FALSE THEN 1.0 ELSE 0.0 END), 4) AS perfect_order_rate, ",
+        "  ROUND(AVG(CASE WHEN is_cancelled = TRUE THEN 1.0 ELSE 0.0 END), 4) AS cancellation_rate, ",
+        "  ROUND(AVG(CASE WHEN is_backorder = TRUE THEN 1.0 ELSE 0.0 END), 4) AS backorder_rate ",
+        "FROM welch.demand_planning_demo.silver_orders ",
+        "WHERE order_date >= date_sub(current_date(), 91)"
+      ]
+    },
+    {
+      "name": "transport_mode_comparison",
+      "displayName": "Transportation Mode Comparison",
+      "queryLines": [
+        "SELECT transport_mode, ",
+        "       MEASURE(`Freight $/ton`) AS freight_cost_per_ton, ",
+        "       MEASURE(`CO2 kg/ton`) AS co2_kg_per_ton, ",
+        "       SUM(tons_shipped) AS tons_shipped ",
+        "FROM welch.demand_planning_demo.mv_control_tower_kpis ",
+        "WHERE week >= date_sub(current_date(), 91) ",
+        "GROUP BY transport_mode ",
+        "ORDER BY tons_shipped DESC"
+      ]
+    },
+    {
+      "name": "product_family_mix",
+      "displayName": "Product Family Mix (13w)",
+      "queryLines": [
+        "SELECT sku_family, ",
+        "       SUM(units_ordered) AS total_units, ",
+        "       ROUND(SUM(units_ordered) * 100.0 / SUM(SUM(units_ordered)) OVER (), 1) AS pct_of_total ",
+        "FROM welch.demand_planning_demo.silver_orders ",
+        "WHERE order_date >= date_sub(current_date(), 91) ",
+        "GROUP BY sku_family ",
+        "ORDER BY total_units DESC"
+      ]
+    },
+    {
+      "name": "orders_by_channel",
+      "displayName": "Orders by Sales Channel",
+      "queryLines": [
+        "SELECT sales_channel, ",
+        "       COUNT(*) AS order_count, ",
+        "       SUM(units_ordered) AS units_ordered, ",
+        "       ROUND(AVG(CASE WHEN actual_late = FALSE THEN 1.0 ELSE 0.0 END), 4) AS otif_rate ",
+        "FROM welch.demand_planning_demo.silver_orders ",
+        "WHERE order_date >= date_sub(current_date(), 91) ",
+        "GROUP BY sales_channel ",
+        "ORDER BY order_count DESC"
+      ]
     }
   ],
   "pages": [
@@ -306,16 +502,14 @@
       "layout": [
         {
           "widget": {
-            "name": "header_text",
+            "name": "exec_header",
             "multilineTextboxSpec": {
               "lines": [
-                "# 🏭 Supply Chain Control Tower",
-                "",
-                "**Unified visibility across service, cost, forecasting, and sustainability** | Data refreshed from Databricks Lakehouse"
+                "# 🎯 Executive Overview | Demand Planning Control Tower"
               ]
             }
           },
-          "position": { "x": 0, "y": 0, "width": 8, "height": 1 }
+          "position": { "x": 0, "y": 0, "width": 12, "height": 1 }
         },
         {
           "widget": {
@@ -323,8 +517,8 @@
             "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "otif_rate", "expression": "`otif_rate`" }], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
-              "encodings": { "value": { "fieldName": "otif_rate", "displayName": "OTIF %" }},
-              "frame": { "title": "✅ OTIF", "showTitle": true, "showDescription": true, "description": "13-week avg" }
+              "encodings": { "value": { "fieldName": "otif_rate", "displayName": "OTIF Rate" }},
+              "frame": { "title": "✅ OTIF", "showTitle": true }
             }
           },
           "position": { "x": 0, "y": 1, "width": 2, "height": 2 }
@@ -336,7 +530,7 @@
             "spec": {
               "version": 2, "widgetType": "counter",
               "encodings": { "value": { "fieldName": "mape", "displayName": "MAPE" }},
-              "frame": { "title": "📊 Forecast MAPE", "showTitle": true, "showDescription": true, "description": "13-week avg" }
+              "frame": { "title": "📊 Forecast MAPE", "showTitle": true }
             }
           },
           "position": { "x": 2, "y": 1, "width": 2, "height": 2 }
@@ -348,7 +542,7 @@
             "spec": {
               "version": 2, "widgetType": "counter",
               "encodings": { "value": { "fieldName": "freight_cost_per_ton", "displayName": "$/ton" }},
-              "frame": { "title": "🚚 Freight Cost", "showTitle": true, "showDescription": true, "description": "13-week avg" }
+              "frame": { "title": "🚚 Freight Cost", "showTitle": true }
             }
           },
           "position": { "x": 4, "y": 1, "width": 2, "height": 2 }
@@ -359,8 +553,8 @@
             "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "co2_kg_per_ton", "expression": "`co2_kg_per_ton`" }], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
-              "encodings": { "value": { "fieldName": "co2_kg_per_ton", "displayName": "kg CO₂/ton" }},
-              "frame": { "title": "🌿 Carbon Intensity", "showTitle": true, "showDescription": true, "description": "13-week avg" }
+              "encodings": { "value": { "fieldName": "co2_kg_per_ton", "displayName": "kg/ton" }},
+              "frame": { "title": "🌿 CO₂ Emissions", "showTitle": true }
             }
           },
           "position": { "x": 6, "y": 1, "width": 2, "height": 2 }
@@ -371,11 +565,11 @@
             "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "late_risk_prob", "expression": "`late_risk_prob`" }], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
-              "encodings": { "value": { "fieldName": "late_risk_prob", "displayName": "Risk %" }},
-              "frame": { "title": "⚠️ Late-Delivery Risk", "showTitle": true, "showDescription": true, "description": "ML-predicted avg" }
+              "encodings": { "value": { "fieldName": "late_risk_prob", "displayName": "Avg Risk" }},
+              "frame": { "title": "⚠️ Late Risk", "showTitle": true }
             }
           },
-          "position": { "x": 0, "y": 3, "width": 2, "height": 2 }
+          "position": { "x": 8, "y": 1, "width": 2, "height": 2 }
         },
         {
           "widget": {
@@ -384,42 +578,88 @@
             "spec": {
               "version": 2, "widgetType": "counter",
               "encodings": { "value": { "fieldName": "premium_freight_pct", "displayName": "Premium %" }},
-              "frame": { "title": "🚨 Premium Freight", "showTitle": true, "showDescription": true, "description": "Expedite %" }
+              "frame": { "title": "🚨 Premium Freight", "showTitle": true }
+            }
+          },
+          "position": { "x": 10, "y": 1, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "kpi_orders",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "order_volume_kpis", "fields": [{ "name": "total_orders", "expression": "`total_orders`" }], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "counter",
+              "encodings": { "value": { "fieldName": "total_orders", "displayName": "Orders" }},
+              "frame": { "title": "📋 Total Orders", "showTitle": true }
+            }
+          },
+          "position": { "x": 0, "y": 3, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "kpi_customers",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "order_volume_kpis", "fields": [{ "name": "unique_customers", "expression": "`unique_customers`" }], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "counter",
+              "encodings": { "value": { "fieldName": "unique_customers", "displayName": "Customers" }},
+              "frame": { "title": "👥 Customers", "showTitle": true }
             }
           },
           "position": { "x": 2, "y": 3, "width": 2, "height": 2 }
         },
         {
           "widget": {
-            "name": "kpi_energy",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "energy_kwh_per_unit", "expression": "`energy_kwh_per_unit`" }], "disaggregated": true }}],
+            "name": "kpi_perfect_order",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "service_performance_kpis", "fields": [{ "name": "perfect_order_rate", "expression": "`perfect_order_rate`" }], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
-              "encodings": { "value": { "fieldName": "energy_kwh_per_unit", "displayName": "kWh/unit" }},
-              "frame": { "title": "⚡ Energy Intensity", "showTitle": true, "showDescription": true, "description": "Production" }
+              "encodings": { "value": { "fieldName": "perfect_order_rate", "displayName": "Rate" }},
+              "frame": { "title": "🎯 Perfect Order", "showTitle": true }
             }
           },
           "position": { "x": 4, "y": 3, "width": 2, "height": 2 }
         },
         {
           "widget": {
-            "name": "region_kpis",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_by_region", "fields": [
-              { "name": "region", "expression": "`region`" },
-              { "name": "otif_rate", "expression": "`otif_rate`" },
-              { "name": "freight_cost_per_ton", "expression": "`freight_cost_per_ton`" },
-              { "name": "co2_kg_per_ton", "expression": "`co2_kg_per_ton`" }
+            "name": "kpi_backorder",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "service_performance_kpis", "fields": [{ "name": "backorder_rate", "expression": "`backorder_rate`" }], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "counter",
+              "encodings": { "value": { "fieldName": "backorder_rate", "displayName": "Rate" }},
+              "frame": { "title": "📦 Backorder", "showTitle": true }
+            }
+          },
+          "position": { "x": 6, "y": 3, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "kpi_cancellation",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "service_performance_kpis", "fields": [{ "name": "cancellation_rate", "expression": "`cancellation_rate`" }], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "counter",
+              "encodings": { "value": { "fieldName": "cancellation_rate", "displayName": "Rate" }},
+              "frame": { "title": "❌ Cancellation", "showTitle": true }
+            }
+          },
+          "position": { "x": 8, "y": 3, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "product_mix_bar",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "product_family_mix", "fields": [
+              { "name": "sku_family", "expression": "`sku_family`" },
+              { "name": "pct_of_total", "expression": "`pct_of_total`" }
             ], "disaggregated": true }}],
             "spec": {
               "version": 3, "widgetType": "bar",
               "encodings": {
-                "x": { "fieldName": "otif_rate", "displayName": "OTIF %", "scale": { "type": "quantitative" }},
-                "y": { "fieldName": "region", "displayName": "Region", "scale": { "type": "categorical" }}
+                "x": { "fieldName": "pct_of_total", "displayName": "% of Volume", "scale": { "type": "quantitative" }},
+                "y": { "fieldName": "sku_family", "displayName": "Product Family", "scale": { "type": "categorical" }}
               },
-              "frame": { "title": "🗺️ OTIF by Region (13w)", "showTitle": true }
+              "frame": { "title": "📊 Product Mix", "showTitle": true }
             }
           },
-          "position": { "x": 6, "y": 3, "width": 2, "height": 4 }
+          "position": { "x": 10, "y": 3, "width": 2, "height": 2 }
         },
         {
           "widget": {
@@ -439,7 +679,7 @@
               "frame": { "title": "📈 OTIF Trend by Region", "showTitle": true }
             }
           },
-          "position": { "x": 0, "y": 5, "width": 3, "height": 3 }
+          "position": { "x": 0, "y": 5, "width": 6, "height": 4 }
         },
         {
           "widget": {
@@ -456,10 +696,10 @@
                 "y": { "fieldName": "total_units", "displayName": "Units", "scale": { "type": "quantitative" }},
                 "color": { "fieldName": "region", "displayName": "Region" }
               },
-              "frame": { "title": "📦 Demand by Region (Stacked)", "showTitle": true }
+              "frame": { "title": "📦 Demand by Region", "showTitle": true }
             }
           },
-          "position": { "x": 3, "y": 5, "width": 3, "height": 3 }
+          "position": { "x": 6, "y": 5, "width": 6, "height": 4 }
         },
         {
           "widget": {
@@ -473,13 +713,31 @@
               "version": 3, "widgetType": "heatmap",
               "encodings": {
                 "x": { "fieldName": "customer_region", "displayName": "Region", "scale": { "type": "categorical" }},
-                "y": { "fieldName": "sku_family", "displayName": "Product Family", "scale": { "type": "categorical" }},
-                "color": { "fieldName": "avg_late_risk_prob", "displayName": "Late Risk", "scale": { "type": "quantitative" }}
+                "y": { "fieldName": "sku_family", "displayName": "Family", "scale": { "type": "categorical" }},
+                "color": { "fieldName": "avg_late_risk_prob", "displayName": "Risk", "scale": { "type": "quantitative" }}
               },
-              "frame": { "title": "🤖 ML Late-Risk Hotspots (4w)", "showTitle": true }
+              "frame": { "title": "🤖 ML Late-Risk Hotspots", "showTitle": true }
             }
           },
-          "position": { "x": 0, "y": 8, "width": 4, "height": 3 }
+          "position": { "x": 0, "y": 9, "width": 4, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "region_kpis",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_by_region", "fields": [
+              { "name": "region", "expression": "`region`" },
+              { "name": "otif_rate", "expression": "`otif_rate`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 3, "widgetType": "bar",
+              "encodings": {
+                "x": { "fieldName": "otif_rate", "displayName": "OTIF", "scale": { "type": "quantitative" }},
+                "y": { "fieldName": "region", "displayName": "Region", "scale": { "type": "categorical" }}
+              },
+              "frame": { "title": "🗺️ OTIF by Region", "showTitle": true }
+            }
+          },
+          "position": { "x": 4, "y": 9, "width": 4, "height": 4 }
         },
         {
           "widget": {
@@ -497,7 +755,45 @@
               "frame": { "title": "🚚 Highest-Cost Lanes", "showTitle": true }
             }
           },
-          "position": { "x": 4, "y": 8, "width": 4, "height": 3 }
+          "position": { "x": 8, "y": 9, "width": 4, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "channel_performance",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "orders_by_channel", "fields": [
+              { "name": "sales_channel", "expression": "`sales_channel`" },
+              { "name": "otif_rate", "expression": "`otif_rate`" },
+              { "name": "order_count", "expression": "`order_count`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 3, "widgetType": "bar",
+              "encodings": {
+                "x": { "fieldName": "otif_rate", "displayName": "OTIF Rate", "scale": { "type": "quantitative" }},
+                "y": { "fieldName": "sales_channel", "displayName": "Channel", "scale": { "type": "categorical" }}
+              },
+              "frame": { "title": "📊 OTIF by Sales Channel", "showTitle": true }
+            }
+          },
+          "position": { "x": 0, "y": 13, "width": 6, "height": 3 }
+        },
+        {
+          "widget": {
+            "name": "transport_mode_chart",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "transport_mode_comparison", "fields": [
+              { "name": "transport_mode", "expression": "`transport_mode`" },
+              { "name": "freight_cost_per_ton", "expression": "`freight_cost_per_ton`" },
+              { "name": "co2_kg_per_ton", "expression": "`co2_kg_per_ton`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 3, "widgetType": "bar",
+              "encodings": {
+                "x": { "fieldName": "freight_cost_per_ton", "displayName": "$/ton", "scale": { "type": "quantitative" }},
+                "y": { "fieldName": "transport_mode", "displayName": "Mode", "scale": { "type": "categorical" }}
+              },
+              "frame": { "title": "🚛 Cost by Transport Mode", "showTitle": true }
+            }
+          },
+          "position": { "x": 6, "y": 13, "width": 6, "height": 3 }
         }
       ],
       "pageType": "PAGE_TYPE_CANVAS"
@@ -517,12 +813,31 @@
               ]
             }
           },
-          "position": { "x": 0, "y": 0, "width": 8, "height": 1 }
+          "position": { "x": 0, "y": 0, "width": 6, "height": 1 }
+        },
+        {
+          "widget": {
+            "name": "region_filter_widget",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "region_list", "fields": [
+              { "name": "region", "expression": "`region`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [{ "fieldName": "region", "displayName": "Region" }]
+              },
+              "frame": { "title": "🗺️ Filter by Region", "showTitle": true }
+            },
+            "parameterMappings": {
+              "selected_region": "region"
+            }
+          },
+          "position": { "x": 6, "y": 0, "width": 2, "height": 1 }
         },
         {
           "widget": {
             "name": "sust_co2_kpi",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "co2_kg_per_ton", "expression": "`co2_kg_per_ton`" }], "disaggregated": true }}],
+            "queries": [{ "name": "main_query", "query": { "datasetName": "sust_kpi_snapshot", "fields": [{ "name": "co2_kg_per_ton", "expression": "`co2_kg_per_ton`" }], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
               "encodings": { "value": { "fieldName": "co2_kg_per_ton", "displayName": "kg/ton" }},
@@ -534,7 +849,7 @@
         {
           "widget": {
             "name": "sust_energy_kpi",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "energy_kwh_per_unit", "expression": "`energy_kwh_per_unit`" }], "disaggregated": true }}],
+            "queries": [{ "name": "main_query", "query": { "datasetName": "sust_kpi_snapshot", "fields": [{ "name": "energy_kwh_per_unit", "expression": "`energy_kwh_per_unit`" }], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
               "encodings": { "value": { "fieldName": "energy_kwh_per_unit", "displayName": "kWh/unit" }},
@@ -546,7 +861,7 @@
         {
           "widget": {
             "name": "sust_premium_kpi",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "premium_freight_pct", "expression": "`premium_freight_pct`" }], "disaggregated": true }}],
+            "queries": [{ "name": "main_query", "query": { "datasetName": "sust_kpi_snapshot", "fields": [{ "name": "premium_freight_pct", "expression": "`premium_freight_pct`" }], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
               "encodings": { "value": { "fieldName": "premium_freight_pct", "displayName": "%" }},
@@ -558,7 +873,7 @@
         {
           "widget": {
             "name": "sust_freight_kpi",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "freight_cost_per_ton", "expression": "`freight_cost_per_ton`" }], "disaggregated": true }}],
+            "queries": [{ "name": "main_query", "query": { "datasetName": "sust_kpi_snapshot", "fields": [{ "name": "freight_cost_per_ton", "expression": "`freight_cost_per_ton`" }], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
               "encodings": { "value": { "fieldName": "freight_cost_per_ton", "displayName": "$/ton" }},
@@ -616,7 +931,13 @@
                 "x": { "fieldName": "co2_kg_per_ton", "displayName": "CO₂ kg/ton", "scale": { "type": "quantitative" }},
                 "y": { "fieldName": "region", "displayName": "Region", "scale": { "type": "categorical" }}
               },
-              "frame": { "title": "🗺️ CO₂ by Region", "showTitle": true }
+              "frame": { "title": "🗺️ CO₂ by Region", "showTitle": true },
+              "interactions": {
+                "filterOnClick": {
+                  "type": "CROSS_FILTER",
+                  "columnName": "region"
+                }
+              }
             }
           },
           "position": { "x": 0, "y": 6, "width": 4, "height": 3 }
@@ -657,6 +978,44 @@
             }
           },
           "position": { "x": 0, "y": 9, "width": 8, "height": 3 }
+        },
+        {
+          "widget": {
+            "name": "mode_cost_comparison",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "transport_mode_comparison", "fields": [
+              { "name": "transport_mode", "expression": "`transport_mode`" },
+              { "name": "freight_cost_per_ton", "expression": "`freight_cost_per_ton`" },
+              { "name": "tons_shipped", "expression": "`tons_shipped`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 3, "widgetType": "bar",
+              "encodings": {
+                "x": { "fieldName": "freight_cost_per_ton", "displayName": "$/ton", "scale": { "type": "quantitative" }},
+                "y": { "fieldName": "transport_mode", "displayName": "Mode", "scale": { "type": "categorical" }}
+              },
+              "frame": { "title": "🚛 Freight Cost by Transport Mode", "showTitle": true }
+            }
+          },
+          "position": { "x": 0, "y": 12, "width": 4, "height": 3 }
+        },
+        {
+          "widget": {
+            "name": "mode_co2_comparison",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "transport_mode_comparison", "fields": [
+              { "name": "transport_mode", "expression": "`transport_mode`" },
+              { "name": "co2_kg_per_ton", "expression": "`co2_kg_per_ton`" },
+              { "name": "tons_shipped", "expression": "`tons_shipped`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 3, "widgetType": "bar",
+              "encodings": {
+                "x": { "fieldName": "co2_kg_per_ton", "displayName": "kg CO₂/ton", "scale": { "type": "quantitative" }},
+                "y": { "fieldName": "transport_mode", "displayName": "Mode", "scale": { "type": "categorical" }}
+              },
+              "frame": { "title": "🌱 CO₂ Emissions by Transport Mode", "showTitle": true }
+            }
+          },
+          "position": { "x": 4, "y": 12, "width": 4, "height": 3 }
         }
       ],
       "pageType": "PAGE_TYPE_CANVAS"
@@ -670,25 +1029,101 @@
             "name": "forecast_header",
             "multilineTextboxSpec": {
               "lines": [
-                "# 📊 Demand Forecasting",
-                "",
-                "**AI-powered hierarchical forecasting with MLflow** | Track accuracy, identify problem areas, and improve planning"
+                "# 📊 Demand Forecasting | AI-powered accuracy tracking and bias analysis"
               ]
             }
           },
-          "position": { "x": 0, "y": 0, "width": 8, "height": 1 }
+          "position": { "x": 0, "y": 0, "width": 4, "height": 1 }
         },
         {
           "widget": {
-            "name": "forecast_mape_kpi",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "mape", "expression": "`mape`" }], "disaggregated": true }}],
+            "name": "fc_region_filter",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "fc_region_list", "fields": [
+              { "name": "region", "expression": "`region`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [{ "fieldName": "region", "displayName": "Region" }]
+              },
+              "frame": { "title": "🗺️ Region", "showTitle": true }
+            },
+            "parameterMappings": { "fc_region": "region" }
+          },
+          "position": { "x": 4, "y": 0, "width": 2, "height": 1 }
+        },
+        {
+          "widget": {
+            "name": "fc_family_filter",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "fc_sku_family_list", "fields": [
+              { "name": "sku_family", "expression": "`sku_family`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [{ "fieldName": "sku_family", "displayName": "Product" }]
+              },
+              "frame": { "title": "📦 Product Family", "showTitle": true }
+            },
+            "parameterMappings": { "fc_sku_family": "sku_family" }
+          },
+          "position": { "x": 6, "y": 0, "width": 2, "height": 1 }
+        },
+        {
+          "widget": {
+            "name": "fc_mape_kpi",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "fc_kpi_snapshot", "fields": [
+              { "name": "mape", "expression": "`mape`" }
+            ], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
               "encodings": { "value": { "fieldName": "mape", "displayName": "MAPE" }},
-              "frame": { "title": "📈 Forecast Accuracy (MAPE)", "showTitle": true, "showDescription": true, "description": "Lower is better" }
+              "frame": { "title": "📊 Avg MAPE (13w)", "showTitle": true, "showDescription": true, "description": "Lower is better" }
             }
           },
-          "position": { "x": 0, "y": 1, "width": 4, "height": 2 }
+          "position": { "x": 0, "y": 1, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "fc_bias_kpi",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "forecast_bias_summary", "fields": [
+              { "name": "avg_bias_pct", "expression": "`avg_bias_pct`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "counter",
+              "encodings": { "value": { "fieldName": "avg_bias_pct", "displayName": "%" }},
+              "frame": { "title": "📈 Avg Forecast Bias", "showTitle": true, "showDescription": true, "description": "+ over / - under" }
+            }
+          },
+          "position": { "x": 2, "y": 1, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "fc_over_count",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "forecast_bias_summary", "fields": [
+              { "name": "over_forecast_count", "expression": "`over_forecast_count`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "counter",
+              "encodings": { "value": { "fieldName": "over_forecast_count", "displayName": "Count" }},
+              "frame": { "title": "⬆️ Over-Forecasts", "showTitle": true }
+            }
+          },
+          "position": { "x": 4, "y": 1, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "fc_under_count",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "forecast_bias_summary", "fields": [
+              { "name": "under_forecast_count", "expression": "`under_forecast_count`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "counter",
+              "encodings": { "value": { "fieldName": "under_forecast_count", "displayName": "Count" }},
+              "frame": { "title": "⬇️ Under-Forecasts", "showTitle": true }
+            }
+          },
+          "position": { "x": 6, "y": 1, "width": 2, "height": 2 }
         },
         {
           "widget": {
@@ -704,26 +1139,6 @@
                 "y": { "fieldName": "mape", "displayName": "MAPE", "scale": { "type": "quantitative" }}
               },
               "frame": { "title": "📉 MAPE Trend Over Time", "showTitle": true }
-            }
-          },
-          "position": { "x": 4, "y": 1, "width": 4, "height": 3 }
-        },
-        {
-          "widget": {
-            "name": "mape_heatmap",
-            "queries": [{ "name": "main_query", "query": { "datasetName": "mape_by_family_region", "fields": [
-              { "name": "sku_family", "expression": "`sku_family`" },
-              { "name": "region", "expression": "`region`" },
-              { "name": "mape", "expression": "`mape`" }
-            ], "disaggregated": true }}],
-            "spec": {
-              "version": 3, "widgetType": "heatmap",
-              "encodings": {
-                "x": { "fieldName": "region", "displayName": "Region", "scale": { "type": "categorical" }},
-                "y": { "fieldName": "sku_family", "displayName": "Product Family", "scale": { "type": "categorical" }},
-                "color": { "fieldName": "mape", "displayName": "MAPE", "scale": { "type": "quantitative" }}
-              },
-              "frame": { "title": "🎯 MAPE by Family × Region", "showTitle": true }
             }
           },
           "position": { "x": 0, "y": 3, "width": 4, "height": 3 }
@@ -742,10 +1157,108 @@
                 "x": { "fieldName": "week", "displayName": "Week", "scale": { "type": "temporal" }},
                 "y": { "fieldName": "actual_units", "displayName": "Actual", "scale": { "type": "quantitative" }}
               },
-              "frame": { "title": "📦 Demand vs Forecast (Total)", "showTitle": true }
+              "frame": { "title": "📦 Demand vs Forecast", "showTitle": true }
             }
           },
-          "position": { "x": 0, "y": 6, "width": 8, "height": 3 }
+          "position": { "x": 4, "y": 3, "width": 4, "height": 3 }
+        },
+        {
+          "widget": {
+            "name": "mape_by_region_bar",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "mape_by_region", "fields": [
+              { "name": "region", "expression": "`region`" },
+              { "name": "mape", "expression": "`mape`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 3, "widgetType": "bar",
+              "encodings": {
+                "x": { "fieldName": "mape", "displayName": "MAPE", "scale": { "type": "quantitative" }},
+                "y": { "fieldName": "region", "displayName": "Region", "scale": { "type": "categorical" }}
+              },
+              "frame": { "title": "🗺️ MAPE by Region", "showTitle": true }
+            }
+          },
+          "position": { "x": 0, "y": 6, "width": 2, "height": 3 }
+        },
+        {
+          "widget": {
+            "name": "mape_by_family_bar",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "mape_by_family", "fields": [
+              { "name": "sku_family", "expression": "`sku_family`" },
+              { "name": "mape", "expression": "`mape`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 3, "widgetType": "bar",
+              "encodings": {
+                "x": { "fieldName": "mape", "displayName": "MAPE", "scale": { "type": "quantitative" }},
+                "y": { "fieldName": "sku_family", "displayName": "Product", "scale": { "type": "categorical" }}
+              },
+              "frame": { "title": "📦 MAPE by Product", "showTitle": true }
+            }
+          },
+          "position": { "x": 2, "y": 6, "width": 2, "height": 3 }
+        },
+        {
+          "widget": {
+            "name": "mape_heatmap",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "mape_by_family_region", "fields": [
+              { "name": "sku_family", "expression": "`sku_family`" },
+              { "name": "region", "expression": "`region`" },
+              { "name": "mape", "expression": "`mape`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 3, "widgetType": "heatmap",
+              "encodings": {
+                "x": { "fieldName": "region", "displayName": "Region", "scale": { "type": "categorical" }},
+                "y": { "fieldName": "sku_family", "displayName": "Product", "scale": { "type": "categorical" }},
+                "color": { "fieldName": "mape", "displayName": "MAPE", "scale": { "type": "quantitative" }}
+              },
+              "frame": { "title": "🎯 Accuracy Heatmap (Product × Region)", "showTitle": true }
+            }
+          },
+          "position": { "x": 4, "y": 6, "width": 4, "height": 3 }
+        },
+        {
+          "widget": {
+            "name": "worst_forecasts_table",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "worst_forecasts", "fields": [
+              { "name": "sku_family", "expression": "`sku_family`" },
+              { "name": "region", "expression": "`region`" },
+              { "name": "mape", "expression": "`mape`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 2, "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  { "fieldName": "sku_family", "type": "string", "displayAs": "string", "visible": true, "order": 1, "title": "Product" },
+                  { "fieldName": "region", "type": "string", "displayAs": "string", "visible": true, "order": 2, "title": "Region" },
+                  { "fieldName": "mape", "type": "float", "displayAs": "number", "numberFormat": "#,##0.00", "visible": true, "order": 3, "title": "MAPE" }
+                ]
+              },
+              "itemsPerPage": 10,
+              "condensed": true,
+              "frame": { "title": "🔥 Worst Performing Combinations", "showTitle": true }
+            }
+          },
+          "position": { "x": 0, "y": 9, "width": 4, "height": 3 }
+        },
+        {
+          "widget": {
+            "name": "forecast_bias_trend",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "forecast_bias", "fields": [
+              { "name": "week", "expression": "`week`" },
+              { "name": "bias_pct", "expression": "AVG(`bias_pct`)" }
+            ], "disaggregated": false }}],
+            "spec": {
+              "version": 3, "widgetType": "bar",
+              "encodings": {
+                "x": { "fieldName": "week", "displayName": "Week", "scale": { "type": "temporal" }},
+                "y": { "fieldName": "bias_pct", "displayName": "Bias %", "scale": { "type": "quantitative" }}
+              },
+              "frame": { "title": "📊 Weekly Forecast Bias Trend", "showTitle": true, "showDescription": true, "description": "+ over-forecast / - under-forecast" }
+            }
+          },
+          "position": { "x": 4, "y": 9, "width": 4, "height": 3 }
         }
       ],
       "pageType": "PAGE_TYPE_CANVAS"
@@ -759,9 +1272,7 @@
             "name": "ops_header",
             "multilineTextboxSpec": {
               "lines": [
-                "# 🚚 Operations & Late-Delivery Risk",
-                "",
-                "**ML-powered risk scoring** | Identify orders at risk before they miss OTIF targets"
+                "# 🚚 Late-Delivery Risk | ML-powered order risk scoring"
               ]
             }
           },
@@ -773,8 +1284,8 @@
             "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "late_risk_prob", "expression": "`late_risk_prob`" }], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
-              "encodings": { "value": { "fieldName": "late_risk_prob", "displayName": "Avg Risk" }},
-              "frame": { "title": "⚠️ Avg Late-Delivery Risk", "showTitle": true }
+              "encodings": { "value": { "fieldName": "late_risk_prob", "displayName": "Risk" }},
+              "frame": { "title": "⚠️ Avg Late Risk", "showTitle": true }
             }
           },
           "position": { "x": 0, "y": 1, "width": 2, "height": 2 }
@@ -785,7 +1296,7 @@
             "queries": [{ "name": "main_query", "query": { "datasetName": "kpi_snapshot", "fields": [{ "name": "otif_rate", "expression": "`otif_rate`" }], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "counter",
-              "encodings": { "value": { "fieldName": "otif_rate", "displayName": "OTIF %" }},
+              "encodings": { "value": { "fieldName": "otif_rate", "displayName": "OTIF" }},
               "frame": { "title": "✅ OTIF Rate", "showTitle": true }
             }
           },
@@ -803,12 +1314,12 @@
               "version": 3, "widgetType": "line",
               "encodings": {
                 "x": { "fieldName": "order_week", "displayName": "Week", "scale": { "type": "temporal" }},
-                "y": { "fieldName": "avg_late_risk", "displayName": "Predicted Risk", "scale": { "type": "quantitative" }}
+                "y": { "fieldName": "avg_late_risk", "displayName": "Risk", "scale": { "type": "quantitative" }}
               },
-              "frame": { "title": "📈 Late Risk: Predicted vs Actual", "showTitle": true }
+              "frame": { "title": "📈 Risk Trend", "showTitle": true }
             }
           },
-          "position": { "x": 4, "y": 1, "width": 4, "height": 3 }
+          "position": { "x": 4, "y": 1, "width": 4, "height": 2 }
         },
         {
           "widget": {
@@ -820,13 +1331,33 @@
             "spec": {
               "version": 3, "widgetType": "bar",
               "encodings": {
-                "x": { "fieldName": "avg_late_risk", "displayName": "Avg Late Risk", "scale": { "type": "quantitative" }},
+                "x": { "fieldName": "avg_late_risk", "displayName": "Risk", "scale": { "type": "quantitative" }},
                 "y": { "fieldName": "customer_region", "displayName": "Region", "scale": { "type": "categorical" }}
               },
-              "frame": { "title": "🗺️ Risk by Region (4w)", "showTitle": true }
+              "frame": { "title": "🗺️ Risk by Region", "showTitle": true }
             }
           },
           "position": { "x": 0, "y": 3, "width": 4, "height": 3 }
+        },
+        {
+          "widget": {
+            "name": "risk_hotspots",
+            "queries": [{ "name": "main_query", "query": { "datasetName": "late_risk_hotspots", "fields": [
+              { "name": "customer_region", "expression": "`customer_region`" },
+              { "name": "sku_family", "expression": "`sku_family`" },
+              { "name": "avg_late_risk_prob", "expression": "`avg_late_risk_prob`" }
+            ], "disaggregated": true }}],
+            "spec": {
+              "version": 3, "widgetType": "heatmap",
+              "encodings": {
+                "x": { "fieldName": "customer_region", "displayName": "Region", "scale": { "type": "categorical" }},
+                "y": { "fieldName": "sku_family", "displayName": "Product", "scale": { "type": "categorical" }},
+                "color": { "fieldName": "avg_late_risk_prob", "displayName": "Risk", "scale": { "type": "quantitative" }}
+              },
+              "frame": { "title": "🎯 Risk Hotspots", "showTitle": true }
+            }
+          },
+          "position": { "x": 4, "y": 3, "width": 4, "height": 3 }
         },
         {
           "widget": {
@@ -834,22 +1365,33 @@
             "queries": [{ "name": "main_query", "query": { "datasetName": "late_risk_orders", "fields": [
               { "name": "order_date", "expression": "`order_date`" },
               { "name": "customer_region", "expression": "`customer_region`" },
-              { "name": "channel", "expression": "`channel`" },
+              { "name": "sku_family", "expression": "`sku_family`" },
               { "name": "plant_id", "expression": "`plant_id`" },
               { "name": "dc_id", "expression": "`dc_id`" },
-              { "name": "sku_family", "expression": "`sku_family`" },
               { "name": "units_ordered", "expression": "`units_ordered`" },
-              { "name": "days_to_request", "expression": "`days_to_request`" },
               { "name": "late_risk_prob", "expression": "`late_risk_prob`" },
               { "name": "actual_late", "expression": "`actual_late`" }
             ], "disaggregated": true }}],
             "spec": {
               "version": 2, "widgetType": "table",
-              "encodings": {},
-              "frame": { "title": "🔥 Highest-Risk Orders (30d)", "showTitle": true }
+              "encodings": {
+                "columns": [
+                  { "fieldName": "order_date", "type": "datetime", "displayAs": "datetime", "visible": true, "order": 1, "title": "Date" },
+                  { "fieldName": "customer_region", "type": "string", "displayAs": "string", "visible": true, "order": 2, "title": "Region" },
+                  { "fieldName": "sku_family", "type": "string", "displayAs": "string", "visible": true, "order": 3, "title": "Product" },
+                  { "fieldName": "plant_id", "type": "string", "displayAs": "string", "visible": true, "order": 4, "title": "Plant" },
+                  { "fieldName": "dc_id", "type": "string", "displayAs": "string", "visible": true, "order": 5, "title": "DC" },
+                  { "fieldName": "units_ordered", "type": "integer", "displayAs": "number", "numberFormat": "#,##0", "visible": true, "order": 6, "title": "Units" },
+                  { "fieldName": "late_risk_prob", "type": "float", "displayAs": "number", "numberFormat": "0.00", "visible": true, "order": 7, "title": "Risk Score" },
+                  { "fieldName": "actual_late", "type": "boolean", "displayAs": "boolean", "visible": true, "order": 8, "title": "Late?" }
+                ]
+              },
+              "itemsPerPage": 15,
+              "condensed": true,
+              "frame": { "title": "🔥 High-Risk Orders (30d)", "showTitle": true }
             }
           },
-          "position": { "x": 0, "y": 6, "width": 8, "height": 5 }
+          "position": { "x": 0, "y": 6, "width": 8, "height": 6 }
         }
       ],
       "pageType": "PAGE_TYPE_CANVAS"
@@ -863,13 +1405,11 @@
             "name": "network_header",
             "multilineTextboxSpec": {
               "lines": [
-                "# 🗺️ ADS Supply Chain Network",
-                "",
-                "**16 Manufacturing Plants + 11 Distribution Centers across 5 US regions**"
+                "# 🗺️ Supply Chain Network | Plants & Distribution Centers"
               ]
             }
           },
-          "position": { "x": 0, "y": 0, "width": 6, "height": 1 }
+          "position": { "x": 0, "y": 0, "width": 4, "height": 1 }
         },
         {
           "widget": {
@@ -880,10 +1420,10 @@
             "spec": {
               "version": 2, "widgetType": "counter",
               "encodings": { "value": { "fieldName": "plant_count", "displayName": "Plants" }},
-              "frame": { "title": "🏭 Plants", "showTitle": true }
+              "frame": { "title": "🏭 Manufacturing Plants", "showTitle": true }
             }
           },
-          "position": { "x": 6, "y": 0, "width": 1, "height": 1 }
+          "position": { "x": 4, "y": 0, "width": 2, "height": 1 }
         },
         {
           "widget": {
@@ -894,10 +1434,10 @@
             "spec": {
               "version": 2, "widgetType": "counter",
               "encodings": { "value": { "fieldName": "dc_count", "displayName": "DCs" }},
-              "frame": { "title": "📦 DCs", "showTitle": true }
+              "frame": { "title": "📦 Distribution Centers", "showTitle": true }
             }
           },
-          "position": { "x": 7, "y": 0, "width": 1, "height": 1 }
+          "position": { "x": 6, "y": 0, "width": 2, "height": 1 }
         },
         {
           "widget": {
@@ -999,6 +1539,7 @@
     "theme": {
       "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
     },
-    "applyModeEnabled": true
+    "applyModeEnabled": true,
+    "crossFilteringEnabled": true
   }
 }

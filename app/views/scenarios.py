@@ -201,6 +201,16 @@ def _render_accuracy_scenario(cfg: AppConfig, use_mock: bool) -> None:
     st.markdown("### Forecast Accuracy Improvement")
     st.markdown("*Improve MAPE to reduce safety stock buffers and premium freight*")
     
+    # Check for context from Accuracy Hotspots drill-down
+    scenario_context = st.session_state.get("scenario_context", {})
+    selected_family_from_context = scenario_context.get("sku_family")
+    
+    if selected_family_from_context:
+        st.success(f"📊 **Context loaded from Accuracy Hotspots:** Analyzing {selected_family_from_context.title()} family")
+        if st.button("Clear context", key="clear_accuracy_context"):
+            st.session_state.scenario_context = {}
+            st.rerun()
+    
     # Load data
     mape_result = get_mape_by_family_region(cfg, use_mock)
     df = mape_result.df.copy()
@@ -209,13 +219,41 @@ def _render_accuracy_scenario(cfg: AppConfig, use_mock: bool) -> None:
         st.info("No MAPE data available. Run the data pipeline to generate forecast accuracy metrics.")
         return
     
-    baseline_mape = float(df["avg_mape"].mean())
+    # If context provided, filter to that family
+    if selected_family_from_context and "sku_family" in df.columns:
+        df_filtered = df[df["sku_family"] == selected_family_from_context]
+        if len(df_filtered) > 0:
+            baseline_mape = float(df_filtered["avg_mape"].mean())
+        else:
+            baseline_mape = float(df["avg_mape"].mean())
+    else:
+        baseline_mape = float(df["avg_mape"].mean())
+    
     top_families = df.sort_values("avg_mape", ascending=False)["sku_family"].head(3).tolist() if "sku_family" in df.columns else []
     
     col1, col2 = st.columns([1, 2])
     
     with col1:
         st.markdown("#### Scenario Parameters")
+        
+        # Family filter
+        families = ["All Families"] + sorted(df["sku_family"].unique().tolist()) if "sku_family" in df.columns else ["All Families"]
+        default_idx = 0
+        if selected_family_from_context and selected_family_from_context in families:
+            default_idx = families.index(selected_family_from_context)
+        
+        selected_family = st.selectbox(
+            "SKU Family Focus",
+            families,
+            index=default_idx,
+            key="accuracy_family_filter"
+        )
+        
+        # Update baseline MAPE based on selection
+        if selected_family != "All Families" and "sku_family" in df.columns:
+            family_df = df[df["sku_family"] == selected_family]
+            if len(family_df) > 0:
+                baseline_mape = float(family_df["avg_mape"].mean())
         
         improvement = st.slider(
             "MAPE Improvement Target (%)",
@@ -245,7 +283,13 @@ def _render_accuracy_scenario(cfg: AppConfig, use_mock: bool) -> None:
         
         st.markdown("---")
         
-        recommendations = _get_accuracy_recommendations(improvement, baseline_mape, top_families)
+        # Update top_families based on selection
+        if selected_family != "All Families":
+            focus_family = [selected_family]
+        else:
+            focus_family = top_families
+        
+        recommendations = _get_accuracy_recommendations(improvement, baseline_mape, focus_family)
         _render_recommendations(recommendations)
     
     with col2:

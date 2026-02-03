@@ -35,6 +35,25 @@ def q_mape_by_family_region(cfg: AppConfig) -> str:
     """
 
 
+def q_mape_by_sku(cfg: AppConfig, sku_family: str = None) -> str:
+    """Get SKU-level MAPE data, optionally filtered by family."""
+    where_clause = f"WHERE sku_family = '{sku_family}'" if sku_family else ""
+    return f"""
+    SELECT
+      sku_id,
+      sku_name,
+      sku_family,
+      region,
+      avg(mape) AS avg_mape,
+      count(*) AS weeks_measured
+    FROM {cfg.fq_schema}.kpi_mape_sku_weekly
+    {where_clause}
+    GROUP BY 1, 2, 3, 4
+    ORDER BY avg_mape DESC
+    LIMIT 100
+    """
+
+
 def q_weekly_demand_vs_forecast(cfg: AppConfig) -> str:
     # demand actuals + ridge backtest forecasts (if present)
     return f"""
@@ -136,5 +155,74 @@ def q_freight_lanes(cfg: AppConfig) -> str:
     JOIN {cfg.fq_schema}.silver_plant_locations p ON l.plant_id = p.plant_id
     JOIN {cfg.fq_schema}.silver_dc_locations d ON l.dc_id = d.dc_id
     ORDER BY freight_cost_per_ton DESC
+    """
+
+
+def q_order_volume_kpis(cfg: AppConfig) -> str:
+    """Order volume and customer metrics (13 weeks)."""
+    return f"""
+    SELECT
+      COUNT(*) AS total_orders,
+      COUNT(DISTINCT customer_id) AS unique_customers,
+      COUNT(DISTINCT sales_channel) AS sales_channels,
+      SUM(units_ordered) AS total_units_ordered
+    FROM {cfg.fq_schema}.silver_orders
+    WHERE order_date >= date_sub(current_date(), 91)
+    """
+
+
+def q_service_performance_kpis(cfg: AppConfig) -> str:
+    """Service performance metrics including perfect order rate (13 weeks)."""
+    return f"""
+    SELECT
+      ROUND(AVG(CASE WHEN is_cancelled = FALSE AND is_backorder = FALSE AND actual_late = FALSE THEN 1.0 ELSE 0.0 END), 4) AS perfect_order_rate,
+      ROUND(AVG(CASE WHEN is_cancelled = TRUE THEN 1.0 ELSE 0.0 END), 4) AS cancellation_rate,
+      ROUND(AVG(CASE WHEN is_backorder = TRUE THEN 1.0 ELSE 0.0 END), 4) AS backorder_rate
+    FROM {cfg.fq_schema}.silver_orders
+    WHERE order_date >= date_sub(current_date(), 91)
+    """
+
+
+def q_transport_mode_comparison(cfg: AppConfig) -> str:
+    """Transport mode cost and CO2 comparison."""
+    return f"""
+    SELECT
+      transport_mode,
+      ROUND(AVG(freight_cost_per_ton), 2) AS freight_cost_per_ton,
+      ROUND(AVG(co2_kg_per_ton), 2) AS co2_kg_per_ton,
+      SUM(tons_shipped) AS tons_shipped
+    FROM {cfg.fq_schema}.silver_shipments
+    WHERE ship_date >= date_sub(current_date(), 91)
+    GROUP BY transport_mode
+    ORDER BY tons_shipped DESC
+    """
+
+
+def q_product_family_mix(cfg: AppConfig) -> str:
+    """Product family volume distribution."""
+    return f"""
+    SELECT
+      sku_family,
+      SUM(units_ordered) AS total_units,
+      ROUND(SUM(units_ordered) * 100.0 / SUM(SUM(units_ordered)) OVER (), 1) AS pct_of_total
+    FROM {cfg.fq_schema}.silver_orders
+    WHERE order_date >= date_sub(current_date(), 91)
+    GROUP BY sku_family
+    ORDER BY total_units DESC
+    """
+
+
+def q_orders_by_channel(cfg: AppConfig) -> str:
+    """Orders and OTIF performance by sales channel."""
+    return f"""
+    SELECT
+      sales_channel,
+      COUNT(*) AS order_count,
+      SUM(units_ordered) AS units_ordered,
+      ROUND(AVG(CASE WHEN actual_late = FALSE THEN 1.0 ELSE 0.0 END), 4) AS otif_rate
+    FROM {cfg.fq_schema}.silver_orders
+    WHERE order_date >= date_sub(current_date(), 91)
+    GROUP BY sales_channel
+    ORDER BY order_count DESC
     """
 
