@@ -29,7 +29,8 @@ resources:
           depends_on:
             - task_key: Generate_Bronze
           pipeline_task:
-            pipeline_id: "${var.existing_dlt_pipeline_id}"
+            # Reference the bundle-managed pipeline (not a hardcoded ID)
+            pipeline_id: ${resources.pipelines.supply_chain_medallion.id}
             full_refresh: true
 
         - task_key: Weekly_Forecast_ML
