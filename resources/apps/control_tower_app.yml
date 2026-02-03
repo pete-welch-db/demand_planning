@@ -1,6 +1,6 @@
 resources:
   apps:
-    demand_planning_control_tower:
+    demand_planning_streamlit_app:
       name: "demand-planning-control-tower"
       description: "Streamlit control tower for demand planning and supply chain visibility"
       source_code_path: ../../app
