@@ -11,6 +11,11 @@ on:
     branches:
       - main
 
+# Only one deployment at a time; queue new runs instead of cancelling
+concurrency:
+  group: databricks-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

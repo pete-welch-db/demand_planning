@@ -23,7 +23,7 @@
         "  FROM welch.demand_planning_demo.mv_forecast_accuracy",
         "  WHERE week >= date_sub(current_date(), 91)",
         ") ",
-        "SELECT kpi.*, risk.late_risk_prob, mape.mape",
+        "SELECT kpi.*, risk.late_risk_prob, mape.mape ",
         "FROM kpi CROSS JOIN risk CROSS JOIN mape"
       ]
     },
