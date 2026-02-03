@@ -164,9 +164,9 @@ def q_order_volume_kpis(cfg: AppConfig) -> str:
     SELECT
       COUNT(*) AS total_orders,
       COUNT(DISTINCT customer_id) AS unique_customers,
-      COUNT(DISTINCT sales_channel) AS sales_channels,
+      COUNT(DISTINCT channel) AS sales_channels,
       SUM(units_ordered) AS total_units_ordered
-    FROM {cfg.fq_schema}.silver_orders
+    FROM {cfg.fq_schema}.silver_erp_orders
     WHERE order_date >= date_sub(current_date(), 91)
     """
 
@@ -175,10 +175,10 @@ def q_service_performance_kpis(cfg: AppConfig) -> str:
     """Service performance metrics including perfect order rate (13 weeks)."""
     return f"""
     SELECT
-      ROUND(AVG(CASE WHEN is_cancelled = FALSE AND is_backorder = FALSE AND actual_late = FALSE THEN 1.0 ELSE 0.0 END), 4) AS perfect_order_rate,
+      ROUND(AVG(CASE WHEN is_cancelled = FALSE AND is_backorder = FALSE AND is_otif = TRUE THEN 1.0 ELSE 0.0 END), 4) AS perfect_order_rate,
       ROUND(AVG(CASE WHEN is_cancelled = TRUE THEN 1.0 ELSE 0.0 END), 4) AS cancellation_rate,
       ROUND(AVG(CASE WHEN is_backorder = TRUE THEN 1.0 ELSE 0.0 END), 4) AS backorder_rate
-    FROM {cfg.fq_schema}.silver_orders
+    FROM {cfg.fq_schema}.silver_erp_orders
     WHERE order_date >= date_sub(current_date(), 91)
     """
 
@@ -187,13 +187,13 @@ def q_transport_mode_comparison(cfg: AppConfig) -> str:
     """Transport mode cost and CO2 comparison."""
     return f"""
     SELECT
-      transport_mode,
-      ROUND(AVG(freight_cost_per_ton), 2) AS freight_cost_per_ton,
-      ROUND(AVG(co2_kg_per_ton), 2) AS co2_kg_per_ton,
-      SUM(tons_shipped) AS tons_shipped
-    FROM {cfg.fq_schema}.silver_shipments
+      mode AS transport_mode,
+      ROUND(SUM(freight_cost_usd) / NULLIF(SUM(total_weight_tons), 0), 2) AS freight_cost_per_ton,
+      ROUND(SUM(co2_kg) / NULLIF(SUM(total_weight_tons), 0), 2) AS co2_kg_per_ton,
+      SUM(total_weight_tons) AS tons_shipped
+    FROM {cfg.fq_schema}.silver_tms_shipments
     WHERE ship_date >= date_sub(current_date(), 91)
-    GROUP BY transport_mode
+    GROUP BY mode
     ORDER BY tons_shipped DESC
     """
 
@@ -205,7 +205,7 @@ def q_product_family_mix(cfg: AppConfig) -> str:
       sku_family,
       SUM(units_ordered) AS total_units,
       ROUND(SUM(units_ordered) * 100.0 / SUM(SUM(units_ordered)) OVER (), 1) AS pct_of_total
-    FROM {cfg.fq_schema}.silver_orders
+    FROM {cfg.fq_schema}.silver_erp_orders
     WHERE order_date >= date_sub(current_date(), 91)
     GROUP BY sku_family
     ORDER BY total_units DESC
@@ -216,13 +216,13 @@ def q_orders_by_channel(cfg: AppConfig) -> str:
     """Orders and OTIF performance by sales channel."""
     return f"""
     SELECT
-      sales_channel,
+      channel AS sales_channel,
       COUNT(*) AS order_count,
       SUM(units_ordered) AS units_ordered,
-      ROUND(AVG(CASE WHEN actual_late = FALSE THEN 1.0 ELSE 0.0 END), 4) AS otif_rate
-    FROM {cfg.fq_schema}.silver_orders
+      ROUND(AVG(CASE WHEN is_otif = TRUE THEN 1.0 ELSE 0.0 END), 4) AS otif_rate
+    FROM {cfg.fq_schema}.silver_erp_orders
     WHERE order_date >= date_sub(current_date(), 91)
-    GROUP BY sales_channel
+    GROUP BY channel
     ORDER BY order_count DESC
     """
 
