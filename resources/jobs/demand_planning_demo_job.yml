@@ -67,7 +67,7 @@ resources:
           depends_on:
             - task_key: ML_Late_Risk
           notebook_task:
-            notebook_path: ${workspace.file_path}/notebooks/06_kpi_metric_refresh.py
+            notebook_path: ${workspace.file_path}/notebooks/06_kpi_metric_refresh
             base_parameters:
               catalog: "${var.catalog}"
               schema: "${var.schema}"
