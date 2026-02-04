@@ -6,9 +6,10 @@
 #   1. Bundle deploy (jobs, dashboards, app definition) with --force
 #   2. Run data pipeline job
 #   3. Deploy Genie space
-#   4. Sync & deploy Streamlit app
-#   5. Grant permissions to app service principal
-#   6. Update app.yaml with resource IDs
+#   4. Get Dashboard ID
+#   5. Update app.yaml with Genie + Dashboard IDs
+#   6. Sync & deploy Streamlit app (with IDs already configured)
+#   7. Grant permissions to app service principal
 #
 # Usage:
 #   ./deploy.sh [target]
@@ -183,11 +184,70 @@ else
 fi
 
 # ============================================
-# Step 5: Sync and Deploy Streamlit App
+# Step 5: Update app.yaml with Resource IDs BEFORE deploying
 # ============================================
 echo ""
-echo "📱 Step 5: Deploying Streamlit app..."
+echo "📝 Step 5: Updating app.yaml with resource IDs..."
 APP_NAME="demand-planning-control-tower"
+
+# Update GENIE_SPACE_ID in app.yaml
+if [[ -n "$GENIE_SPACE_ID" ]]; then
+  echo "  Setting GENIE_SPACE_ID=$GENIE_SPACE_ID"
+  python3 << YAML_UPDATE
+import re
+with open('app/app.yaml', 'r') as f:
+    content = f.read()
+# Update GENIE_SPACE_ID
+if 'GENIE_SPACE_ID' in content:
+    content = re.sub(
+        r'(- name: GENIE_SPACE_ID\s+value: ")[^"]*(")',
+        r'\g<1>$GENIE_SPACE_ID\g<2>',
+        content
+    )
+else:
+    # Add it before USE_MOCK_DATA
+    content = content.replace(
+        '  - name: USE_MOCK_DATA',
+        '  - name: GENIE_SPACE_ID\n    value: "$GENIE_SPACE_ID"\n  - name: USE_MOCK_DATA'
+    )
+with open('app/app.yaml', 'w') as f:
+    f.write(content)
+YAML_UPDATE
+else
+  log_warn "No GENIE_SPACE_ID to configure"
+fi
+
+# Update DASHBOARD_EMBED_URL in app.yaml
+if [[ -n "$DASHBOARD_EMBED_URL" ]]; then
+  echo "  Setting DASHBOARD_EMBED_URL"
+  python3 << YAML_UPDATE
+import re
+with open('app/app.yaml', 'r') as f:
+    content = f.read()
+if 'DASHBOARD_EMBED_URL' in content:
+    content = re.sub(
+        r'(- name: DASHBOARD_EMBED_URL\s+value: ")[^"]*(")',
+        r'\g<1>$DASHBOARD_EMBED_URL\g<2>',
+        content
+    )
+else:
+    # Add before USE_MOCK_DATA
+    content = content.replace(
+        '  - name: USE_MOCK_DATA',
+        '  - name: DASHBOARD_EMBED_URL\n    value: "$DASHBOARD_EMBED_URL"\n  - name: USE_MOCK_DATA'
+    )
+with open('app/app.yaml', 'w') as f:
+    f.write(content)
+YAML_UPDATE
+fi
+
+log_info "app.yaml updated with resource IDs"
+
+# ============================================
+# Step 6: Sync and Deploy Streamlit App
+# ============================================
+echo ""
+echo "📱 Step 6: Deploying Streamlit app..."
 
 # Get workspace path from bundle
 WORKSPACE_ROOT=$(echo "$BUNDLE_SUMMARY" | grep -E 'root_path:' | head -1 | awk '{print $2}' | tr -d '"' || echo "")
@@ -199,7 +259,7 @@ databricks sync ./app "$APP_WORKSPACE_PATH" $PROFILE_FLAG --full 2>/dev/null || 
 
 echo "  Deploying app via CLI..."
 if databricks apps deploy "$APP_NAME" --source-code-path "$APP_WORKSPACE_PATH" $PROFILE_FLAG 2>&1; then
-  log_info "App deployed"
+  log_info "App deployed with GENIE_SPACE_ID=$GENIE_SPACE_ID"
 else
   log_warn "App deploy had issues (may already be running)"
 fi
@@ -208,10 +268,10 @@ fi
 sleep 5
 
 # ============================================
-# Step 6: Grant App Service Principal Permissions
+# Step 7: Grant App Service Principal Permissions
 # ============================================
 echo ""
-echo "🔐 Step 6: Granting permissions to app service principal..."
+echo "🔐 Step 7: Granting permissions to app service principal..."
 
 python3 << PYTHON_SCRIPT
 import os
@@ -357,66 +417,6 @@ try:
 except Exception as e:
     print(f"  ⚠️  Permissions script error: {e}")
 PYTHON_SCRIPT
-
-# ============================================
-# Step 7: Update app.yaml with Resource IDs
-# ============================================
-echo ""
-echo "📝 Step 7: Updating app.yaml with resource IDs..."
-
-# Update GENIE_SPACE_ID in app.yaml if we have a new one
-if [[ -n "$GENIE_SPACE_ID" ]]; then
-  if grep -q "GENIE_SPACE_ID" app/app.yaml; then
-    sed -i.bak "s|value: \".*\"  # GENIE_SPACE_ID|value: \"$GENIE_SPACE_ID\"  # GENIE_SPACE_ID|" app/app.yaml 2>/dev/null || \
-    sed -i '' "s|value: \"[^\"]*\"|value: \"$GENIE_SPACE_ID\"|" app/app.yaml 2>/dev/null || true
-    # More robust: use Python to update YAML
-    python3 << YAML_UPDATE
-import re
-with open('app/app.yaml', 'r') as f:
-    content = f.read()
-# Update GENIE_SPACE_ID
-content = re.sub(
-    r'(- name: GENIE_SPACE_ID\s+value: ")[^"]*(")',
-    r'\g<1>$GENIE_SPACE_ID\g<2>',
-    content
-)
-with open('app/app.yaml', 'w') as f:
-    f.write(content)
-YAML_UPDATE
-  fi
-fi
-
-# Update DASHBOARD_EMBED_URL in app.yaml if we have a new one
-if [[ -n "$DASHBOARD_EMBED_URL" ]]; then
-  python3 << YAML_UPDATE
-import re
-with open('app/app.yaml', 'r') as f:
-    content = f.read()
-# Check if DASHBOARD_EMBED_URL exists, if not add it
-if 'DASHBOARD_EMBED_URL' in content:
-    content = re.sub(
-        r'(- name: DASHBOARD_EMBED_URL\s+value: ")[^"]*(")',
-        r'\g<1>$DASHBOARD_EMBED_URL\g<2>',
-        content
-    )
-else:
-    # Add before USE_MOCK_DATA
-    content = content.replace(
-        '  - name: USE_MOCK_DATA',
-        '  - name: DASHBOARD_EMBED_URL\n    value: "$DASHBOARD_EMBED_URL"\n  - name: USE_MOCK_DATA'
-    )
-with open('app/app.yaml', 'w') as f:
-    f.write(content)
-YAML_UPDATE
-fi
-
-log_info "app.yaml updated"
-
-# Re-sync app with updated config
-echo "  Re-syncing app with updated config..."
-databricks sync ./app "$APP_WORKSPACE_PATH" $PROFILE_FLAG --full 2>/dev/null || true
-databricks apps deploy "$APP_NAME" --source-code-path "$APP_WORKSPACE_PATH" $PROFILE_FLAG 2>/dev/null || true
-log_info "App redeployed with updated config"
 
 # ============================================
 # Summary

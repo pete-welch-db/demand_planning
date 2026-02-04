@@ -28,7 +28,7 @@ def render_landing_page():
         margin-bottom: 32px;
     ">
         <p style="
-            color: #4fd1c5;
+            color: #4fd1c5 !important;
             font-size: 14px;
             font-weight: 600;
             letter-spacing: 2px;
@@ -36,14 +36,14 @@ def render_landing_page():
             margin-bottom: 16px;
         ">DATABRICKS FOR SUPPLY CHAIN</p>
         <h1 style="
-            color: #FFFFFF;
+            color: #FFFFFF !important;
             font-size: 2.5rem;
             font-weight: 700;
             line-height: 1.2;
             margin: 0 0 20px 0;
         ">Demand Planning, Without the Blind Spots</h1>
         <p style="
-            color: #e2e8f0;
+            color: #e2e8f0 !important;
             font-size: 1.15rem;
             font-weight: 400;
             margin: 0;
@@ -59,7 +59,7 @@ def render_landing_page():
         unsafe_allow_html=True,
     )
 
-    # Problem Quote Section
+    # Problem Quote Section (updated)
     st.markdown(
         """
     <div style="
@@ -70,7 +70,7 @@ def render_landing_page():
         text-align: center;
     ">
         <p style="
-            color: white;
+            color: #FFFFFF !important;
             font-size: 1.4rem;
             font-weight: 500;
             font-style: italic;
@@ -78,15 +78,15 @@ def render_landing_page():
             font-family: 'DM Sans', sans-serif;
             line-height: 1.4;
         ">
-            "Our planners don’t lack effort — they lack a unified, trustworthy view of demand, inventory, and freight."
+            "The real risk in supply chain isn’t volatility — it’s flying blind because your data can’t keep up."
         </p>
         <p style="
-            color: rgba(255,255,255,0.9);
+            color: #FFFFFF !important;
             font-size: 1rem;
             margin: 0;
             font-family: 'DM Sans', sans-serif;
         ">
-            — Common sentiment from supply chain leaders in volatile, project-driven businesses
+            — Reflecting insights from APQC benchmarks and ASCM supply chain research
         </p>
     </div>
     """,
@@ -133,7 +133,7 @@ def render_landing_page():
                 margin: 8px 0 0 0;
                 font-family: 'DM Sans', sans-serif;
             ">
-                Typical forecast error at SKU/location level — driving both<br/>stockouts and excess inventory.
+                Typical forecast error at SKU/location level in many networks — driving both<br/>stockouts and excess inventory.
             </p>
         </div>
         """,
@@ -164,7 +164,7 @@ def render_landing_page():
                 margin: 8px 0 0 0;
                 font-family: 'DM Sans', sans-serif;
             ">
-                Of inventory value tied up in<br/>slow-moving or excess stock in many supply chains.
+                Of inventory value effectively tied up in<br/>slow-moving or excess stock when planning is off.
             </p>
         </div>
         """,
@@ -195,7 +195,7 @@ def render_landing_page():
                 margin: 8px 0 0 0;
                 font-family: 'DM Sans', sans-serif;
             ">
-                Premium freight multiples compared to planned transport,<br/>
+                Premium freight multiples compared to planned transport<br/>
                 when demand surprises hit and buffers are wrong.
             </p>
         </div>
@@ -231,19 +231,19 @@ def render_landing_page():
             text-align: center;
         ">
             <p style="
-                color: #25B4FF;
+                color: #25B4FF !important;
                 font-size: 2.3rem;
                 font-weight: 700;
                 margin: 0;
                 font-family: 'DM Sans', sans-serif;
             ">77%</p>
             <p style="
-                color: white;
+                color: #FFFFFF !important;
                 font-size: 0.9rem;
                 margin: 8px 0 0 0;
                 font-family: 'DM Sans', sans-serif;
             ">
-                Of companies are investing in better<br/>supply chain visibility — but struggle to connect it to decisions.
+                Of organizations investing in visibility tools — yet still<br/>struggling to connect data to day-to-day planning decisions.
             </p>
         </div>
         """,
@@ -260,14 +260,14 @@ def render_landing_page():
             text-align: center;
         ">
             <p style="
-                color: #25B4FF;
+                color: #25B4FF !important;
                 font-size: 2.3rem;
                 font-weight: 700;
                 margin: 0;
                 font-family: 'DM Sans', sans-serif;
             ">20–50%</p>
             <p style="
-                color: white;
+                color: #FFFFFF !important;
                 font-size: 0.9rem;
                 margin: 8px 0 0 0;
                 font-family: 'DM Sans', sans-serif;
@@ -290,20 +290,20 @@ def render_landing_page():
             text-align: center;
         ">
             <p style="
-                color: #25B4FF;
+                color: #25B4FF !important;
                 font-size: 2.3rem;
                 font-weight: 700;
                 margin: 0;
                 font-family: 'DM Sans', sans-serif;
             ">50%</p>
             <p style="
-                color: white;
+                color: #FFFFFF !important;
                 font-size: 0.9rem;
                 margin: 8px 0 0 0;
                 font-family: 'DM Sans', sans-serif;
             ">
-                Forecast error reduction reported when<br/>
-                AI and real-time data are used in planning.
+                Forecast error reduction reported in case studies<br/>
+                when AI and real-time data are embedded into planning.
             </p>
         </div>
         """,
@@ -324,7 +324,7 @@ def render_landing_page():
         <span style="font-size: 1.5rem;">💡</span>
         <div>
             <p style="
-                color: white;
+                color: #FFFFFF !important;
                 font-size: 1.05rem;
                 font-weight: 600;
                 margin: 0 0 4px 0;
@@ -333,7 +333,7 @@ def render_landing_page():
                 This is not a forecasting-effort problem — it’s a data and scale problem.
             </p>
             <p style="
-                color: rgba(255,255,255,0.75);
+                color: #FFFFFF !important;
                 font-size: 0.95rem;
                 font-weight: 400;
                 margin: 0;
@@ -546,14 +546,14 @@ def render_landing_page():
             margin-bottom: 14px;
         ">
             <p style="
-                color: #25B4FF;
+                color: #25B4FF !important;
                 font-size: 1.1rem;
                 font-weight: 600;
                 margin: 0 0 6px 0;
                 font-family: 'DM Sans', sans-serif;
             ">🗺️ Unified Supply Chain View</p>
             <p style="
-                color: rgba(255,255,255,0.85);
+                color: #FFFFFF !important;
                 font-size: 0.9rem;
                 margin: 0;
                 font-family: 'DM Sans', sans-serif;
@@ -576,14 +576,14 @@ def render_landing_page():
             padding: 22px;
         ">
             <p style="
-                color: #25B4FF;
+                color: #25B4FF !important;
                 font-size: 1.1rem;
                 font-weight: 600;
                 margin: 0 0 6px 0;
                 font-family: 'DM Sans', sans-serif;
             ">📊 Integrated KPIs, One Language</p>
             <p style="
-                color: rgba(255,255,255,0.85);
+                color: #FFFFFF !important;
                 font-size: 0.9rem;
                 margin: 0;
                 font-family: 'DM Sans', sans-serif;
@@ -608,14 +608,14 @@ def render_landing_page():
             margin-bottom: 14px;
         ">
             <p style="
-                color: #25B4FF;
+                color: #25B4FF !important;
                 font-size: 1.1rem;
                 font-weight: 600;
                 margin: 0 0 6px 0;
                 font-family: 'DM Sans', sans-serif;
             ">🤖 AI-Enhanced Forecasting at Scale</p>
             <p style="
-                color: rgba(255,255,255,0.85);
+                color: #FFFFFF !important;
                 font-size: 0.9rem;
                 margin: 0;
                 font-family: 'DM Sans', sans-serif;
@@ -638,14 +638,14 @@ def render_landing_page():
             padding: 22px;
         ">
             <p style="
-                color: #25B4FF;
+                color: #25B4FF !important;
                 font-size: 1.1rem;
                 font-weight: 600;
                 margin: 0 0 6px 0;
                 font-family: 'DM Sans', sans-serif;
             ">📱 Decision Apps for Planners</p>
             <p style="
-                color: rgba(255,255,255,0.85);
+                color: #FFFFFF !important;
                 font-size: 0.9rem;
                 margin: 0;
                 font-family: 'DM Sans', sans-serif;
@@ -672,7 +672,7 @@ def render_landing_page():
         text-align: center;
     ">
         <p style="
-            color: white;
+            color: #FFFFFF !important;
             font-size: 1.45rem;
             font-weight: 600;
             margin: 0 0 6px 0;
@@ -681,7 +681,7 @@ def render_landing_page():
             Ready to see the plan in action?
         </p>
         <p style="
-            color: rgba(255,255,255,0.9);
+            color: #FFFFFF !important;
             font-size: 1rem;
             margin: 0;
             font-family: 'DM Sans', sans-serif;

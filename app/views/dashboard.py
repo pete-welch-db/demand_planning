@@ -35,6 +35,19 @@ def _fmt_pct(x: float) -> str:
     return f"{x*100:.1f}%"
 
 
+def _ensure_numeric(df: pd.DataFrame, columns: list) -> pd.DataFrame:
+    """Convert specified columns to numeric, coercing errors to NaN.
+    
+    The Databricks SQL connector sometimes returns numeric values as strings,
+    which breaks pandas aggregation functions like .mean() and .sum().
+    """
+    df = df.copy()
+    for col in columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+
 def render(cfg: AppConfig, use_mock: bool) -> None:
     """Render the Control Tower page with tabs."""
     st.title("Control Tower")
@@ -111,6 +124,9 @@ def _render_overview_tab(cfg: AppConfig, use_mock: bool) -> None:
     df_ctl = ctl.df.copy()
     if "week" in df_ctl.columns:
         df_ctl["week"] = pd.to_datetime(df_ctl["week"])
+    
+    # Ensure numeric columns are actually numeric (SQL connector sometimes returns strings)
+    df_ctl = _ensure_numeric(df_ctl, ["otif_rate", "freight_cost_per_ton", "premium_freight_pct", "co2_kg_per_ton"])
 
     # KPI snapshot (latest week)
     latest_week = df_ctl["week"].max() if len(df_ctl) else None
@@ -121,15 +137,15 @@ def _render_overview_tab(cfg: AppConfig, use_mock: bool) -> None:
     premium = float(latest["premium_freight_pct"].mean()) if "premium_freight_pct" in latest.columns and len(latest) else float("nan")
     co2 = float(latest["co2_kg_per_ton"].mean()) if "co2_kg_per_ton" in latest.columns and len(latest) else float("nan")
 
-    # Extract new metrics
-    df_order_vol = order_vol.df
-    total_orders = int(df_order_vol["total_orders"].iloc[0]) if len(df_order_vol) else 0
-    unique_customers = int(df_order_vol["unique_customers"].iloc[0]) if len(df_order_vol) else 0
+    # Extract new metrics (ensure numeric conversion from SQL strings)
+    df_order_vol = _ensure_numeric(order_vol.df, ["total_orders", "unique_customers"])
+    total_orders = int(df_order_vol["total_orders"].iloc[0]) if len(df_order_vol) and "total_orders" in df_order_vol.columns else 0
+    unique_customers = int(df_order_vol["unique_customers"].iloc[0]) if len(df_order_vol) and "unique_customers" in df_order_vol.columns else 0
     
-    df_svc = svc_perf.df
-    perfect_order = float(df_svc["perfect_order_rate"].iloc[0]) if len(df_svc) else float("nan")
-    backorder_rate = float(df_svc["backorder_rate"].iloc[0]) if len(df_svc) else float("nan")
-    cancel_rate = float(df_svc["cancellation_rate"].iloc[0]) if len(df_svc) else float("nan")
+    df_svc = _ensure_numeric(svc_perf.df, ["perfect_order_rate", "backorder_rate", "cancellation_rate"])
+    perfect_order = float(df_svc["perfect_order_rate"].iloc[0]) if len(df_svc) and "perfect_order_rate" in df_svc.columns else float("nan")
+    backorder_rate = float(df_svc["backorder_rate"].iloc[0]) if len(df_svc) and "backorder_rate" in df_svc.columns else float("nan")
+    cancel_rate = float(df_svc["cancellation_rate"].iloc[0]) if len(df_svc) and "cancellation_rate" in df_svc.columns else float("nan")
 
     # Section: Core Operational KPIs
     st.subheader("Core Operational KPIs")
@@ -158,7 +174,7 @@ def _render_overview_tab(cfg: AppConfig, use_mock: bool) -> None:
         st.metric("Cancellation Rate", _fmt_pct(cancel_rate) if cancel_rate == cancel_rate else "—")
     with vcol4:
         # Product mix summary
-        df_mix = product_mix.df
+        df_mix = _ensure_numeric(product_mix.df, ["pct_of_total", "order_count"])
         if len(df_mix):
             top_family = df_mix.iloc[0]["sku_family"] if len(df_mix) else "—"
             top_pct = float(df_mix.iloc[0]["pct_of_total"]) if len(df_mix) else 0
@@ -167,7 +183,7 @@ def _render_overview_tab(cfg: AppConfig, use_mock: bool) -> None:
             st.metric("Top Product", "—")
 
     # Section: Transport Mode Comparison
-    df_transport = transport.df
+    df_transport = _ensure_numeric(transport.df, ["freight_cost_per_ton", "co2_kg_per_ton", "tons_shipped"])
     if len(df_transport) > 1:
         st.subheader("Transport Mode Efficiency")
         tcol1, tcol2 = st.columns(2)
@@ -236,7 +252,7 @@ def _render_network_tab(cfg: AppConfig, use_mock: bool) -> None:
 
     plants_df = plants_result.df
     dcs_df = dcs_result.df
-    lanes_df = lanes_result.df
+    lanes_df = _ensure_numeric(lanes_result.df, ["freight_cost_per_ton", "co2_kg_per_ton", "weekly_volume"])
 
     # KPI summary
     col1, col2, col3, col4 = st.columns(4)
@@ -445,11 +461,12 @@ def _render_otif_tab(cfg: AppConfig, use_mock: bool) -> None:
     channels = get_orders_by_channel(cfg, use_mock)
     
     df_ctl = ctl.df.copy()
-    df_svc = svc_perf.df
-    df_channels = channels.df
+    df_svc = _ensure_numeric(svc_perf.df, ["perfect_order_rate", "backorder_rate", "cancellation_rate"])
+    df_channels = _ensure_numeric(channels.df, ["otif_rate", "order_count"])
     
     if "week" in df_ctl.columns:
         df_ctl["week"] = pd.to_datetime(df_ctl["week"])
+    df_ctl = _ensure_numeric(df_ctl, ["otif_rate", "freight_cost_per_ton", "premium_freight_pct", "co2_kg_per_ton"])
 
     # Service Performance KPIs
     st.subheader("Service Performance Metrics (13 weeks)")
@@ -541,7 +558,7 @@ def _render_otif_tab(cfg: AppConfig, use_mock: bool) -> None:
 def _render_demand_tab(cfg: AppConfig, use_mock: bool) -> None:
     """Demand vs forecast tab."""
     dem = get_demand_vs_forecast(cfg, use_mock)
-    df_dem = dem.df.copy()
+    df_dem = _ensure_numeric(dem.df.copy(), ["actual_units", "forecast_units"])
     
     if "week" in df_dem.columns:
         df_dem["week"] = pd.to_datetime(df_dem["week"])
@@ -586,7 +603,7 @@ def _render_demand_tab(cfg: AppConfig, use_mock: bool) -> None:
 def _render_accuracy_tab(cfg: AppConfig, use_mock: bool) -> None:
     """Forecast accuracy hotspots tab with SKU drill-down."""
     mape = get_mape_by_family_region(cfg, use_mock)
-    df_mape = mape.df
+    df_mape = _ensure_numeric(mape.df, ["avg_mape"])
 
     st.subheader("Forecast Accuracy Hotspots (MAPE)")
     render_chart_annotation(
@@ -680,7 +697,7 @@ def _render_accuracy_tab(cfg: AppConfig, use_mock: bool) -> None:
         
         # Load SKU-level data
         sku_result = get_mape_by_sku(cfg, use_mock, selected_family)
-        df_sku = sku_result.df
+        df_sku = _ensure_numeric(sku_result.df, ["avg_mape"])
         
         if len(df_sku):
             # Summary metrics
@@ -775,7 +792,7 @@ def _render_accuracy_tab(cfg: AppConfig, use_mock: bool) -> None:
 def _render_risk_tab(cfg: AppConfig, use_mock: bool) -> None:
     """ML late-delivery risk tab."""
     risk = get_order_late_risk(cfg, use_mock)
-    df_risk = risk.df.copy()
+    df_risk = _ensure_numeric(risk.df.copy(), ["late_risk_prob"])
 
     st.subheader("Late-Delivery Risk (ML Predictions)")
     render_chart_annotation(
