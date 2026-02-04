@@ -14,6 +14,8 @@ env:
   - name: DATABRICKS_SCHEMA
     value: "demand_planning_demo"
   - name: GENIE_SPACE_ID
-    value: "01f10122259c1ae8a5211261bb660afb"
+    value: "01f101db878216c7a335b1bd92377ae4"
+  - name: DASHBOARD_EMBED_URL
+    value: "https://adb-984752964297111.11.azuredatabricks.net/embed/dashboardsv3/01f101d4d3ed17309d990aa37698f99b?o=984752964297111"
   - name: USE_MOCK_DATA
     value: "false"  

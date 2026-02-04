@@ -489,6 +489,9 @@ def _render_otif_tab(cfg: AppConfig, use_mock: bool) -> None:
                 xaxis_tickformat=".0%",
                 xaxis_range=[0.8, 1.0],
                 height=250,
+                paper_bgcolor="white",
+                plot_bgcolor="white",
+                showlegend=False,
             )
             fig.update_traces(marker_color=THEME.get("brand_red", "#FF3621"))
             st.plotly_chart(fig, use_container_width=True)

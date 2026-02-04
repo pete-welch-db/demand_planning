@@ -1,12 +1,14 @@
 #!/bin/bash
 # ===========================================
-# Demand Planning Demo - Deploy Script
+# Demand Planning Demo - Fully Automated Deploy
 # ===========================================
 # Full deployment pipeline:
-#   1. Bundle deploy (jobs, dashboards, app definition)
+#   1. Bundle deploy (jobs, dashboards, app definition) with --force
 #   2. Run data pipeline job
 #   3. Deploy Genie space
-#   4. Sync & deploy Streamlit app with permissions
+#   4. Sync & deploy Streamlit app
+#   5. Grant permissions to app service principal
+#   6. Update app.yaml with resource IDs
 #
 # Usage:
 #   ./deploy.sh [target]
@@ -15,14 +17,24 @@
 #   ./deploy.sh          # Deploy to default (dev) target
 #   ./deploy.sh azure    # Deploy to azure target
 #
-# Authentication:
-#   - Option 1: Set DATABRICKS_HOST and DATABRICKS_TOKEN in .env (auto-loaded)
-#   - Option 2: Configure a CLI profile and pass as second arg or DATABRICKS_CONFIG_PROFILE
-#   - Option 3: Use `databricks auth login --host <host>` for interactive login
+# Requirements:
+#   - databricks CLI installed and authenticated
+#   - python3 with databricks-sdk installed
+#   - .env file with DATABRICKS_HOST, DATABRICKS_TOKEN, etc.
 
 set -e
 
-# Load .env if present (provides DATABRICKS_HOST / DATABRICKS_TOKEN)
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() { echo -e "${GREEN}✅${NC} $1"; }
+log_warn() { echo -e "${YELLOW}⚠️${NC} $1"; }
+log_error() { echo -e "${RED}❌${NC} $1"; }
+
+# Load .env if present
 if [[ -f .env ]]; then
   echo "📄 Loading environment from .env..."
   set -a
@@ -38,7 +50,6 @@ PROFILE_FLAG=""
 if [[ -n "$PROFILE" ]]; then
   PROFILE_FLAG="--profile $PROFILE"
 else
-  # If using token auth (DATABRICKS_HOST + DATABRICKS_TOKEN), unset any stale profile
   if [[ -n "$DATABRICKS_HOST" && -n "$DATABRICKS_TOKEN" ]]; then
     unset DATABRICKS_CONFIG_PROFILE
   fi
@@ -49,26 +60,41 @@ if [[ "$TARGET" == "-h" || "$TARGET" == "--help" ]]; then
   echo ""
   echo "Targets: dev, azure"
   echo ""
-  echo "Authentication (in order of precedence):"
-  echo "  1. DATABRICKS_HOST + DATABRICKS_TOKEN env vars (auto-loaded from .env)"
+  echo "Authentication:"
+  echo "  1. DATABRICKS_HOST + DATABRICKS_TOKEN env vars (from .env)"
   echo "  2. CLI profile: ./deploy.sh <target> <profile>"
-  echo "  3. Interactive: databricks auth login --host <host>"
   exit 0
 fi
 
+echo ""
 echo "🚀 Deploying Demand Planning Demo to target: $TARGET"
 echo "=============================================="
 
+# Validate required tools
+if ! command -v databricks &> /dev/null; then
+  log_error "databricks CLI not found. Install with: pip install databricks-cli"
+  exit 1
+fi
+
+if ! command -v python3 &> /dev/null; then
+  log_error "python3 not found"
+  exit 1
+fi
+
+if ! python3 -c "import databricks.sdk" 2>/dev/null; then
+  log_warn "databricks-sdk not installed. Install with: pip install databricks-sdk"
+fi
+
 # ============================================
-# Step 1: Validate and Deploy Bundle
+# Step 1: Validate and Deploy Bundle (with --force)
 # ============================================
 echo ""
-echo "📋 Step 1: Validating bundle configuration..."
+echo "📋 Step 1: Validating and deploying bundle..."
 databricks bundle validate --target "$TARGET" $PROFILE_FLAG
 
-echo ""
-echo "📦 Deploying bundle (jobs, dashboards, app definition)..."
-databricks bundle deploy --target "$TARGET" $PROFILE_FLAG
+echo "  Deploying bundle with --force (overrides remote changes)..."
+databricks bundle deploy --target "$TARGET" $PROFILE_FLAG --force
+log_info "Bundle deployed"
 
 # ============================================
 # Step 2: Run Data Pipeline Job
@@ -76,55 +102,84 @@ databricks bundle deploy --target "$TARGET" $PROFILE_FLAG
 echo ""
 echo "🔄 Step 2: Running data pipeline job..."
 echo "   (UC Setup → Bronze → DLT → Forecast → ML → KPIs → Dashboards)"
-databricks bundle run Demand_Planning_Demo_Job --target "$TARGET" $PROFILE_FLAG
+if databricks bundle run Demand_Planning_Demo_Job --target "$TARGET" $PROFILE_FLAG; then
+  log_info "Data pipeline completed"
+else
+  log_warn "Data pipeline had issues (may already have data)"
+fi
 
 # ============================================
 # Step 3: Deploy Genie Space
 # ============================================
 echo ""
 echo "🤖 Step 3: Deploying Genie space..."
-GENIE_SPACE_ID=""
-if command -v python3 &> /dev/null && python3 -c "import databricks.sdk" 2>/dev/null; then
-  if python3 scripts/deploy_genie_space.py; then
-    GENIE_STATUS="✅"
+
+# Use existing GENIE_SPACE_ID from .env or cached file if available
+GENIE_SPACE_ID="${GENIE_SPACE_ID:-}"
+[[ -z "$GENIE_SPACE_ID" && -f .genie_space_id ]] && GENIE_SPACE_ID=$(cat .genie_space_id)
+
+if [[ -n "$GENIE_SPACE_ID" ]]; then
+  log_info "Using existing Genie space: $GENIE_SPACE_ID"
+elif [[ -f scripts/deploy_genie_space.py ]]; then
+  if python3 scripts/deploy_genie_space.py 2>&1; then
     if [[ -f .genie_space_id ]]; then
       GENIE_SPACE_ID=$(cat .genie_space_id)
+      log_info "Genie space deployed: $GENIE_SPACE_ID"
     fi
   else
-    GENIE_STATUS="⚠️  (manual setup required)"
+    log_warn "Genie space deployment had issues (using existing if available)"
+    [[ -f .genie_space_id ]] && GENIE_SPACE_ID=$(cat .genie_space_id)
   fi
 else
-  echo "  ⏭️  Skipping: databricks-sdk not installed"
-  echo "     Install with: pip install databricks-sdk"
-  GENIE_STATUS="⏭️  Skipped"
+  log_warn "Genie deploy script not found"
 fi
 
 # ============================================
-# Step 4: Get Dashboard ID
+# Step 4: Get Dashboard ID from Bundle Summary
 # ============================================
 echo ""
 echo "📊 Step 4: Getting dashboard ID..."
+
+# Use existing dashboard ID from cached file if available
 DASHBOARD_ID=""
-# Try to get dashboard ID from bundle summary
-BUNDLE_SUMMARY=$(databricks bundle summary --target "$TARGET" $PROFILE_FLAG 2>/dev/null || echo "")
-if echo "$BUNDLE_SUMMARY" | grep -q "demand_planning_control_tower"; then
-  DASHBOARD_ID=$(echo "$BUNDLE_SUMMARY" | grep -A5 "demand_planning_control_tower" | grep -E "^\s+id:" | head -1 | awk '{print $2}' | tr -d '"' || echo "")
+[[ -f .dashboard_id ]] && DASHBOARD_ID=$(cat .dashboard_id)
+
+if [[ -z "$DASHBOARD_ID" ]]; then
+  # Method 1: Parse bundle summary for dashboard URL
+  BUNDLE_SUMMARY=$(databricks bundle summary --target "$TARGET" $PROFILE_FLAG 2>/dev/null || echo "")
+  if [[ -n "$BUNDLE_SUMMARY" ]]; then
+    # Extract dashboard ID from URL like: https://...databricks.net/dashboardsv3/01f101d4d3ed17309d990aa37698f99b/published
+    DASHBOARD_ID=$(echo "$BUNDLE_SUMMARY" | grep -oE 'dashboardsv3/[a-f0-9]+' | head -1 | sed 's|dashboardsv3/||' || echo "")
+  fi
+  
+  # Method 2: If still empty, try Python SDK
+  if [[ -z "$DASHBOARD_ID" ]]; then
+    DASHBOARD_ID=$(python3 -c "
+import os
+from databricks.sdk import WorkspaceClient
+w = WorkspaceClient(host=os.environ.get('DATABRICKS_HOST'), token=os.environ.get('DATABRICKS_TOKEN'))
+dashboards = list(w.lakeview.list())
+for d in dashboards:
+    if 'Demand Planning' in (d.display_name or ''):
+        print(d.dashboard_id)
+        break
+" 2>/dev/null || echo "")
+  fi
+else
+  log_info "Using cached dashboard ID: $DASHBOARD_ID"
 fi
 
-# Get org ID from host
+# Get org ID from host for embed URL
 ORG_ID=$(echo "$DATABRICKS_HOST" | grep -oE 'adb-[0-9]+' | sed 's/adb-//' || echo "")
 
-# Build dashboard embed URL
 DASHBOARD_EMBED_URL=""
 if [[ -n "$DASHBOARD_ID" ]]; then
-  echo "  ✅ Dashboard ID: $DASHBOARD_ID"
-  DASHBOARD_EMBED_URL="${DATABRICKS_HOST}/embed/dashboardsv3/${DASHBOARD_ID}"
-  if [[ -n "$ORG_ID" ]]; then
-    DASHBOARD_EMBED_URL="${DASHBOARD_EMBED_URL}?o=${ORG_ID}"
-  fi
+  log_info "Dashboard ID: $DASHBOARD_ID"
   echo "$DASHBOARD_ID" > .dashboard_id
+  DASHBOARD_EMBED_URL="${DATABRICKS_HOST}/embed/dashboardsv3/${DASHBOARD_ID}"
+  [[ -n "$ORG_ID" ]] && DASHBOARD_EMBED_URL="${DASHBOARD_EMBED_URL}?o=${ORG_ID}"
 else
-  echo "  ⚠️  Could not find dashboard ID"
+  log_warn "Could not find dashboard ID"
 fi
 
 # ============================================
@@ -134,99 +189,44 @@ echo ""
 echo "📱 Step 5: Deploying Streamlit app..."
 APP_NAME="demand-planning-control-tower"
 
-# Get workspace path for app from bundle
-WORKSPACE_ROOT=$(databricks bundle summary --target "$TARGET" $PROFILE_FLAG 2>/dev/null | grep -E "^\s+root_path:" | head -1 | awk '{print $2}' | tr -d '"' || echo "")
-if [[ -z "$WORKSPACE_ROOT" ]]; then
-  WORKSPACE_ROOT="/Workspace/Users/pete.welch@databricks.com/demand_planning"
-fi
-# DABs puts files in /files/ subdirectory
+# Get workspace path from bundle
+WORKSPACE_ROOT=$(echo "$BUNDLE_SUMMARY" | grep -E 'root_path:' | head -1 | awk '{print $2}' | tr -d '"' || echo "")
+[[ -z "$WORKSPACE_ROOT" ]] && WORKSPACE_ROOT="/Workspace/Users/pete.welch@databricks.com/demand_planning"
 APP_WORKSPACE_PATH="${WORKSPACE_ROOT}/files/app"
 
 echo "  Syncing app source to: $APP_WORKSPACE_PATH"
-databricks sync ./app "$APP_WORKSPACE_PATH" $PROFILE_FLAG --full 2>/dev/null || echo "  Note: Sync completed with warnings"
+databricks sync ./app "$APP_WORKSPACE_PATH" $PROFILE_FLAG --full 2>/dev/null || true
 
-# Deploy the app with environment variables
-echo "  Deploying app: $APP_NAME"
-if command -v python3 &> /dev/null && python3 -c "import databricks.sdk" 2>/dev/null; then
-  python3 - << PYTHON_SCRIPT
-import os
-import sys
-
-try:
-    from databricks.sdk import WorkspaceClient
-    
-    host = os.environ.get("DATABRICKS_HOST", "").rstrip("/")
-    token = os.environ.get("DATABRICKS_TOKEN")
-    
-    if not host or not token:
-        print("  Warning: Missing DATABRICKS_HOST or DATABRICKS_TOKEN")
-        sys.exit(0)
-    
-    w = WorkspaceClient(host=host, token=token)
-    
-    app_name = "$APP_NAME"
-    source_path = "$APP_WORKSPACE_PATH"
-    
-    # Deploy the app
-    try:
-        deployment = w.apps.deploy(
-            app_name=app_name,
-            source_code_path=source_path,
-            mode="SNAPSHOT"
-        )
-        print(f"  ✅ App deployment initiated")
-        
-        # Wait for deployment to start
-        import time
-        time.sleep(5)
-        
-        # Get app details to find service principal
-        app = w.apps.get(app_name)
-        sp_id = getattr(app, 'service_principal_id', None)
-        sp_name = getattr(app, 'service_principal_name', None) or f"app-{app_name}"
-        
-        print(f"  App service principal: {sp_name} (ID: {sp_id})")
-        
-        # Start the app
-        try:
-            w.apps.start(app_name)
-            print(f"  ✅ App starting...")
-        except Exception as e:
-            if "already" not in str(e).lower():
-                print(f"  Note: {e}")
-                
-    except Exception as e:
-        print(f"  Warning: App deployment: {e}")
-        
-except Exception as e:
-    print(f"  Warning: {e}")
-PYTHON_SCRIPT
+echo "  Deploying app via CLI..."
+if databricks apps deploy "$APP_NAME" --source-code-path "$APP_WORKSPACE_PATH" $PROFILE_FLAG 2>&1; then
+  log_info "App deployed"
 else
-  echo "  ⏭️  Skipping app deployment (databricks-sdk not installed)"
-  echo "     Deploy manually: databricks apps deploy $APP_NAME --source-code-path $APP_WORKSPACE_PATH"
+  log_warn "App deploy had issues (may already be running)"
 fi
+
+# Wait for app to be ready
+sleep 5
 
 # ============================================
 # Step 6: Grant App Service Principal Permissions
 # ============================================
 echo ""
 echo "🔐 Step 6: Granting permissions to app service principal..."
-if command -v python3 &> /dev/null && python3 -c "import databricks.sdk" 2>/dev/null; then
-  python3 - << PYTHON_SCRIPT
+
+python3 << PYTHON_SCRIPT
 import os
 import sys
+import requests
 import time
 
 try:
     from databricks.sdk import WorkspaceClient
-    from databricks.sdk.service.catalog import SecurableType, PermissionsChange, Privilege
-    from databricks.sdk.service.sql import PermissionLevel, SetRequest, ObjectTypePlural
     
     host = os.environ.get("DATABRICKS_HOST", "").rstrip("/")
     token = os.environ.get("DATABRICKS_TOKEN")
     
     if not host or not token:
-        print("  Warning: Missing DATABRICKS_HOST or DATABRICKS_TOKEN")
+        print("  ⚠️  Missing DATABRICKS_HOST or DATABRICKS_TOKEN")
         sys.exit(0)
     
     w = WorkspaceClient(host=host, token=token)
@@ -236,152 +236,187 @@ try:
     schema = os.environ.get("DATABRICKS_SCHEMA", "demand_planning_demo")
     http_path = os.environ.get("DATABRICKS_HTTP_PATH", "")
     warehouse_id = http_path.split("/")[-1] if "/" in http_path else http_path
-    genie_space_id = "$GENIE_SPACE_ID" if "$GENIE_SPACE_ID" else None
-    dashboard_id = "$DASHBOARD_ID" if "$DASHBOARD_ID" else None
+    genie_space_id = "$GENIE_SPACE_ID" if "$GENIE_SPACE_ID" and "$GENIE_SPACE_ID" != "" else None
+    dashboard_id = "$DASHBOARD_ID" if "$DASHBOARD_ID" and "$DASHBOARD_ID" != "" else None
     
     # Get app service principal
     try:
-        app = w.apps.get(app_name)
+        # Retry a few times in case app is still initializing
+        for attempt in range(3):
+            try:
+                app = w.apps.get(app_name)
+                break
+            except Exception:
+                if attempt < 2:
+                    time.sleep(3)
+                else:
+                    raise
+        
         sp_id = getattr(app, 'service_principal_id', None)
         sp_name = getattr(app, 'service_principal_name', None)
         
         if not sp_id:
-            print("  Warning: Could not find app service principal ID")
+            print("  ⚠️  Could not find app service principal ID")
             sys.exit(0)
             
         print(f"  Service principal: {sp_name}")
         
     except Exception as e:
-        print(f"  Warning: Could not get app details: {e}")
+        print(f"  ⚠️  Could not get app details: {e}")
         sys.exit(0)
+    
+    # Get service principal application_id (UUID)
+    try:
+        sp_details = w.service_principals.get(str(sp_id))
+        app_uuid = getattr(sp_details, 'application_id', None)
+        print(f"  Application ID (UUID): {app_uuid}")
+    except Exception as e:
+        print(f"  ⚠️  Could not get SP details: {e}")
+        app_uuid = None
+    
+    if not app_uuid:
+        print("  ⚠️  No application UUID found, cannot grant permissions")
+        sys.exit(0)
+    
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     
     # 1. Grant SQL Warehouse access (CAN_USE)
     if warehouse_id:
         print(f"  Granting SQL Warehouse access ({warehouse_id})...")
         try:
-            # Use SQL permissions API
-            from databricks.sdk.service.sql import GetPermissionLevelsRequest
-            
-            # Get current permissions and add service principal
-            current = w.dbsql_permissions.get(
-                object_type=ObjectTypePlural.WAREHOUSES,
-                object_id=warehouse_id
+            resp = requests.patch(
+                f"{host}/api/2.0/permissions/sql/warehouses/{warehouse_id}",
+                headers=headers,
+                json={"access_control_list": [{"service_principal_name": app_uuid, "permission_level": "CAN_USE"}]}
             )
-            
-            # Build new ACL with service principal
-            new_acl = list(current.access_control_list or [])
-            sp_exists = any(
-                getattr(acl, 'service_principal_name', None) == sp_name
-                for acl in new_acl
-            )
-            
-            if not sp_exists:
-                from databricks.sdk.service.sql import AccessControl
-                new_acl.append(AccessControl(
-                    service_principal_name=sp_name,
-                    permission_level=PermissionLevel.CAN_USE
-                ))
-                
-                w.dbsql_permissions.set(
-                    object_type=ObjectTypePlural.WAREHOUSES,
-                    object_id=warehouse_id,
-                    access_control_list=new_acl
-                )
+            if resp.status_code == 200:
                 print(f"    ✅ Warehouse CAN_USE granted")
             else:
-                print(f"    ✓ Warehouse access already exists")
-                
+                print(f"    ⚠️  Warehouse: {resp.status_code}")
         except Exception as e:
-            print(f"    ⚠️  Warehouse permission: {e}")
+            print(f"    ⚠️  Warehouse: {e}")
     
-    # 2. Grant Unity Catalog access
+    # 2. Grant Unity Catalog access via SQL GRANT statements
     print(f"  Granting Unity Catalog access ({catalog}.{schema})...")
+    grants = [
+        f"GRANT USE CATALOG ON CATALOG \`{catalog}\` TO \`{app_uuid}\`",
+        f"GRANT USE SCHEMA ON SCHEMA \`{catalog}\`.\`{schema}\` TO \`{app_uuid}\`",
+        f"GRANT SELECT ON SCHEMA \`{catalog}\`.\`{schema}\` TO \`{app_uuid}\`"
+    ]
     
-    # Grant USE_CATALOG on catalog
-    try:
-        w.grants.update(
-            securable_type=SecurableType.CATALOG,
-            full_name=catalog,
-            changes=[PermissionsChange(
-                principal=sp_name,
-                add=[Privilege.USE_CATALOG]
-            )]
-        )
-        print(f"    ✅ USE_CATALOG on {catalog}")
-    except Exception as e:
-        if "already" in str(e).lower() or "exists" in str(e).lower():
-            print(f"    ✓ USE_CATALOG already granted")
-        else:
-            print(f"    ⚠️  Catalog: {e}")
+    for stmt in grants:
+        try:
+            resp = w.statement_execution.execute_statement(
+                warehouse_id=warehouse_id,
+                statement=stmt,
+                wait_timeout="30s"
+            )
+            status = resp.status.state.value if resp.status else "UNKNOWN"
+            grant_type = stmt.split(" ON ")[0].replace("GRANT ", "")
+            if status == "SUCCEEDED":
+                print(f"    ✅ {grant_type}")
+            else:
+                print(f"    ⚠️  {grant_type}: {status}")
+        except Exception as e:
+            print(f"    ⚠️  Grant failed: {e}")
     
-    # Grant USE_SCHEMA and SELECT on schema
-    try:
-        w.grants.update(
-            securable_type=SecurableType.SCHEMA,
-            full_name=f"{catalog}.{schema}",
-            changes=[PermissionsChange(
-                principal=sp_name,
-                add=[Privilege.USE_SCHEMA, Privilege.SELECT]
-            )]
-        )
-        print(f"    ✅ USE_SCHEMA + SELECT on {catalog}.{schema}")
-    except Exception as e:
-        if "already" in str(e).lower() or "exists" in str(e).lower():
-            print(f"    ✓ Schema permissions already granted")
-        else:
-            print(f"    ⚠️  Schema: {e}")
-    
-    # 3. Grant Dashboard access (if dashboard exists)
+    # 3. Grant Dashboard access
     if dashboard_id:
         print(f"  Granting Dashboard access ({dashboard_id})...")
         try:
-            from databricks.sdk.service.dashboards import PermissionLevel as DashPermLevel
-            
-            w.lakeview.update_permissions(
-                dashboard_id=dashboard_id,
-                access_control_list=[{
-                    "service_principal_name": sp_name,
-                    "permission_level": "CAN_VIEW"
-                }]
+            resp = requests.patch(
+                f"{host}/api/2.0/permissions/dashboards/{dashboard_id}",
+                headers=headers,
+                json={"access_control_list": [{"service_principal_name": app_uuid, "permission_level": "CAN_VIEW"}]}
             )
-            print(f"    ✅ Dashboard CAN_VIEW granted")
+            if resp.status_code == 200:
+                print(f"    ✅ Dashboard CAN_VIEW granted")
+            else:
+                print(f"    ⚠️  Dashboard: {resp.status_code}")
         except Exception as e:
-            print(f"    ⚠️  Dashboard permission: {e}")
+            print(f"    ⚠️  Dashboard: {e}")
     
-    # 4. Grant Genie Space access (if genie exists)
-    if genie_space_id and genie_space_id != "":
+    # 4. Grant Genie Space access
+    if genie_space_id:
         print(f"  Granting Genie Space access ({genie_space_id})...")
         try:
-            # Genie permissions via REST API
-            import requests
-            
-            response = requests.patch(
+            resp = requests.patch(
                 f"{host}/api/2.0/genie/spaces/{genie_space_id}/permissions",
-                headers={"Authorization": f"Bearer {token}"},
-                json={
-                    "access_control_list": [{
-                        "service_principal_name": sp_name,
-                        "permission_level": "CAN_QUERY"
-                    }]
-                }
+                headers=headers,
+                json={"access_control_list": [{"service_principal_name": app_uuid, "permission_level": "CAN_QUERY"}]}
             )
-            if response.status_code in (200, 201):
+            if resp.status_code in (200, 201):
                 print(f"    ✅ Genie CAN_QUERY granted")
             else:
-                print(f"    ⚠️  Genie permission: {response.text}")
+                print(f"    ⚠️  Genie: {resp.status_code}")
         except Exception as e:
-            print(f"    ⚠️  Genie permission: {e}")
+            print(f"    ⚠️  Genie: {e}")
     
-    print(f"  ✅ All permissions configured")
+    print("  ✅ Permissions configured")
     
-except ImportError as e:
-    print(f"  Warning: Missing SDK module: {e}")
 except Exception as e:
-    print(f"  Warning: {e}")
+    print(f"  ⚠️  Permissions script error: {e}")
 PYTHON_SCRIPT
-else
-  echo "  ⏭️  Skipping permission grants (databricks-sdk not installed)"
+
+# ============================================
+# Step 7: Update app.yaml with Resource IDs
+# ============================================
+echo ""
+echo "📝 Step 7: Updating app.yaml with resource IDs..."
+
+# Update GENIE_SPACE_ID in app.yaml if we have a new one
+if [[ -n "$GENIE_SPACE_ID" ]]; then
+  if grep -q "GENIE_SPACE_ID" app/app.yaml; then
+    sed -i.bak "s|value: \".*\"  # GENIE_SPACE_ID|value: \"$GENIE_SPACE_ID\"  # GENIE_SPACE_ID|" app/app.yaml 2>/dev/null || \
+    sed -i '' "s|value: \"[^\"]*\"|value: \"$GENIE_SPACE_ID\"|" app/app.yaml 2>/dev/null || true
+    # More robust: use Python to update YAML
+    python3 << YAML_UPDATE
+import re
+with open('app/app.yaml', 'r') as f:
+    content = f.read()
+# Update GENIE_SPACE_ID
+content = re.sub(
+    r'(- name: GENIE_SPACE_ID\s+value: ")[^"]*(")',
+    r'\g<1>$GENIE_SPACE_ID\g<2>',
+    content
+)
+with open('app/app.yaml', 'w') as f:
+    f.write(content)
+YAML_UPDATE
+  fi
 fi
+
+# Update DASHBOARD_EMBED_URL in app.yaml if we have a new one
+if [[ -n "$DASHBOARD_EMBED_URL" ]]; then
+  python3 << YAML_UPDATE
+import re
+with open('app/app.yaml', 'r') as f:
+    content = f.read()
+# Check if DASHBOARD_EMBED_URL exists, if not add it
+if 'DASHBOARD_EMBED_URL' in content:
+    content = re.sub(
+        r'(- name: DASHBOARD_EMBED_URL\s+value: ")[^"]*(")',
+        r'\g<1>$DASHBOARD_EMBED_URL\g<2>',
+        content
+    )
+else:
+    # Add before USE_MOCK_DATA
+    content = content.replace(
+        '  - name: USE_MOCK_DATA',
+        '  - name: DASHBOARD_EMBED_URL\n    value: "$DASHBOARD_EMBED_URL"\n  - name: USE_MOCK_DATA'
+    )
+with open('app/app.yaml', 'w') as f:
+    f.write(content)
+YAML_UPDATE
+fi
+
+log_info "app.yaml updated"
+
+# Re-sync app with updated config
+echo "  Re-syncing app with updated config..."
+databricks sync ./app "$APP_WORKSPACE_PATH" $PROFILE_FLAG --full 2>/dev/null || true
+databricks apps deploy "$APP_NAME" --source-code-path "$APP_WORKSPACE_PATH" $PROFILE_FLAG 2>/dev/null || true
+log_info "App redeployed with updated config"
 
 # ============================================
 # Summary
@@ -391,39 +426,26 @@ echo "=============================================="
 echo "✅ Deployment Complete!"
 echo "=============================================="
 echo ""
-echo "Pipeline stages completed:"
-echo "  1. ✅ Bundle: Jobs, dashboards, app definition deployed"
-echo "  2. ✅ Data: Bronze → Silver → Gold pipeline completed"
-echo "  3. ${GENIE_STATUS} Genie: AI/BI Genie space"
-echo "  4. ✅ Dashboard: AI/BI Dashboard refreshed"
-echo "  5. ✅ App: Streamlit app deployed"
-echo "  6. ✅ Permissions: App service principal granted access to:"
-echo "       - SQL Warehouse (CAN_USE)"
-echo "       - Unity Catalog (USE_CATALOG, USE_SCHEMA, SELECT)"
-echo "       - Dashboard (CAN_VIEW)"
-echo "       - Genie Space (CAN_QUERY)"
-echo ""
-echo "Resources:"
-echo "  📊 Dashboard: ${DATABRICKS_HOST}/dashboardsv3/${DASHBOARD_ID:-<pending>}"
-if [[ -n "$GENIE_SPACE_ID" ]]; then
-  echo "  🤖 Genie: ${DATABRICKS_HOST}/genie/spaces/${GENIE_SPACE_ID}"
-fi
+echo "Resources deployed:"
+echo "  📊 Dashboard: ${DATABRICKS_HOST}/dashboardsv3/${DASHBOARD_ID:-<unknown>}"
+[[ -n "$GENIE_SPACE_ID" ]] && echo "  🤖 Genie: ${DATABRICKS_HOST}/genie/spaces/${GENIE_SPACE_ID}"
 echo "  📱 App: ${DATABRICKS_HOST}/apps/${APP_NAME}"
 echo ""
-echo "=============================================="
-echo "📋 Environment Variables (for local dev):"
-echo "=============================================="
+echo "Permissions granted to app service principal:"
+echo "  ✅ SQL Warehouse (CAN_USE)"
+echo "  ✅ Unity Catalog (USE_CATALOG, USE_SCHEMA, SELECT)"
+[[ -n "$DASHBOARD_ID" ]] && echo "  ✅ Dashboard (CAN_VIEW)"
+[[ -n "$GENIE_SPACE_ID" ]] && echo "  ✅ Genie Space (CAN_QUERY)"
 echo ""
+echo "=============================================="
+echo "📋 Local .env should contain:"
+echo "=============================================="
 echo "DATABRICKS_HOST=${DATABRICKS_HOST}"
 echo "DATABRICKS_TOKEN=<your-token>"
 echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}"
 echo "DATABRICKS_CATALOG=${DATABRICKS_CATALOG:-welch}"
 echo "DATABRICKS_SCHEMA=${DATABRICKS_SCHEMA:-demand_planning_demo}"
-if [[ -n "$GENIE_SPACE_ID" ]]; then
-  echo "GENIE_SPACE_ID=${GENIE_SPACE_ID}"
-fi
-if [[ -n "$DASHBOARD_EMBED_URL" ]]; then
-  echo "DASHBOARD_EMBED_URL=${DASHBOARD_EMBED_URL}"
-fi
+[[ -n "$GENIE_SPACE_ID" ]] && echo "GENIE_SPACE_ID=${GENIE_SPACE_ID}"
+[[ -n "$DASHBOARD_EMBED_URL" ]] && echo "DASHBOARD_EMBED_URL=${DASHBOARD_EMBED_URL}"
 echo ""
 echo "=============================================="

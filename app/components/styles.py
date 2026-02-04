@@ -311,14 +311,93 @@ button[data-baseweb="tab"][aria-selected="true"]{
   color: var(--text-secondary);
 }
 
-/* Slider labels */
-[data-testid="stSlider"] > label{
-  color: var(--text-primary);
+/* ============================================
+   FORM INPUT LABELS - HIGH VISIBILITY FIX
+   ============================================ */
+
+/* All Streamlit widget labels - aggressive selectors */
+[data-testid="stSlider"] label,
+[data-testid="stSlider"] > label,
+[data-testid="stSlider"] [data-testid="stWidgetLabel"],
+[data-testid="stSlider"] [data-testid="stWidgetLabel"] p {
+  color: var(--navy-900) !important;
+  opacity: 1 !important;
 }
 
-/* All form labels (toggle, selectbox, etc) - but not inside custom HTML */
-[data-testid="stWidgetLabel"] label{
-  color: var(--text-primary);
+/* Selectbox labels */
+[data-testid="stSelectbox"] label,
+[data-testid="stSelectbox"] > label,
+[data-testid="stSelectbox"] [data-testid="stWidgetLabel"],
+[data-testid="stSelectbox"] [data-testid="stWidgetLabel"] p {
+  color: var(--navy-900) !important;
+  opacity: 1 !important;
+}
+
+/* Number input labels */
+[data-testid="stNumberInput"] label,
+[data-testid="stNumberInput"] > label,
+[data-testid="stNumberInput"] [data-testid="stWidgetLabel"],
+[data-testid="stNumberInput"] [data-testid="stWidgetLabel"] p {
+  color: var(--navy-900) !important;
+  opacity: 1 !important;
+}
+
+/* Text input labels */
+[data-testid="stTextInput"] label,
+[data-testid="stTextInput"] > label,
+[data-testid="stTextInput"] [data-testid="stWidgetLabel"],
+[data-testid="stTextInput"] [data-testid="stWidgetLabel"] p {
+  color: var(--navy-900) !important;
+  opacity: 1 !important;
+}
+
+/* Checkbox labels */
+[data-testid="stCheckbox"] label,
+[data-testid="stCheckbox"] span {
+  color: var(--navy-900) !important;
+  opacity: 1 !important;
+}
+
+/* Radio button labels */
+[data-testid="stRadio"] label,
+[data-testid="stRadio"] [data-testid="stWidgetLabel"],
+[data-testid="stRadio"] [data-testid="stWidgetLabel"] p {
+  color: var(--navy-900) !important;
+  opacity: 1 !important;
+}
+
+/* All form labels - catch-all with !important */
+[data-testid="stWidgetLabel"],
+[data-testid="stWidgetLabel"] label,
+[data-testid="stWidgetLabel"] p,
+[data-testid="stWidgetLabel"] span {
+  color: var(--navy-900) !important;
+  opacity: 1 !important;
+}
+
+/* Streamlit form labels - another approach */
+.stSlider label,
+.stSelectbox label,
+.stNumberInput label,
+.stTextInput label,
+.stCheckbox label {
+  color: var(--navy-900) !important;
+  opacity: 1 !important;
+}
+
+/* Generic label fix for all stElement containers */
+div[class*="stElement"] label,
+div[class*="stElement"] [data-testid="stWidgetLabel"] {
+  color: var(--navy-900) !important;
+  opacity: 1 !important;
+}
+
+/* Fix for column-based layouts */
+[data-testid="column"] label,
+[data-testid="column"] [data-testid="stWidgetLabel"],
+[data-testid="column"] [data-testid="stWidgetLabel"] p {
+  color: var(--navy-900) !important;
+  opacity: 1 !important;
 }
 
 /* Charts: render on card surface (improves contrast on Oat background) */
@@ -429,8 +508,44 @@ h1, h2, h3, h4, h5, h6 {
 /* Ensure all main content text is visible */
 .main .block-container h1,
 .main .block-container h2,
-.main .block-container h3 {
+.main .block-container h3,
+.main .block-container h4,
+.main .block-container h5,
+.main .block-container h6 {
   color: var(--navy-900) !important;
+}
+
+/* Markdown text in main content - but NOT inside custom styled HTML divs */
+/* Only apply to Streamlit-native markdown containers, not raw HTML */
+.main .block-container [data-testid="stMarkdownContainer"] > p,
+.main .block-container [data-testid="stMarkdownContainer"] > span,
+.main .block-container [data-testid="stMarkdownContainer"] > ul > li,
+.main .block-container [data-testid="stMarkdownContainer"] > ol > li {
+  color: var(--text-primary);
+}
+
+/* Preserve white/light text inside dark custom divs (landing page cards) */
+.main .block-container div[style*="background"] p[style*="color"],
+.main .block-container div[style*="background"] span[style*="color"] {
+  /* Do not override - let inline styles win */
+}
+
+/* Italic/emphasis text (often used for descriptions) */
+.main .block-container em,
+.main .block-container i {
+  color: var(--text-secondary) !important;
+}
+
+/* Scenario page section headers */
+[data-testid="stVerticalBlock"] h4,
+[data-testid="stVerticalBlock"] h3 {
+  color: var(--navy-900) !important;
+}
+
+/* Ensure hr/divider is visible */
+.main .block-container hr {
+  border-color: var(--card-border) !important;
+  opacity: 1 !important;
 }
 
 /* Info boxes with better contrast */
@@ -517,6 +632,40 @@ h1, h2, h3, h4, h5, h6 {
 /* Chat input placeholder */
 [data-testid="stChatInput"] textarea::placeholder {
   color: #6b7280 !important;
+}
+
+/* ============================================
+   LANDING PAGE - Preserve dark card text colors
+   ============================================ */
+/* These rules ensure inline styles on landing page HTML are NOT overridden */
+
+/* Dark background cards - white text preservation */
+div[style*="#10212B"] p,
+div[style*="#051017"] p,
+div[style*="0d1f2d"] p,
+div[style*="1a3a4a"] p {
+  color: inherit !important;
+}
+
+div[style*="#10212B"] span,
+div[style*="#051017"] span,
+div[style*="0d1f2d"] span,
+div[style*="1a3a4a"] span {
+  color: inherit !important;
+}
+
+/* Gradient dark cards in landing page */
+div[style*="linear-gradient"] p {
+  color: inherit !important;
+}
+div[style*="linear-gradient"] span {
+  color: inherit !important;
+}
+
+/* Blue accent cards */
+div[style*="#25B4FF"] p,
+div[style*="#1D8CCE"] p {
+  color: inherit !important;
 }
 </style>
 """
